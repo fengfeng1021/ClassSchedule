@@ -206,7 +206,8 @@ public struct CleanScheduleCanvasView: View {
                     Text(name)
                         .font(.system(size: 14, weight: .heavy, design: .rounded))
                         .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, height: 40)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
                 }
             }
             .background(Color(uiColor: .systemGray6))
@@ -328,7 +329,7 @@ public struct CleanScheduleCanvasView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
 
-                if settings.showClassroom && !course.classroom.isEmpty {
+                if !course.classroom.isEmpty {
                     Text(course.classroom)
                         .font(.system(size: 11, weight: .black, design: .rounded))
                         .foregroundStyle(course.color)
