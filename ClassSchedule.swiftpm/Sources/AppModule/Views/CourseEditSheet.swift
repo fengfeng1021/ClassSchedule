@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 課程新增 / 編輯表單視圖（全正體中文，支援大專院校節次快速選擇與連堂設定）
 public struct CourseEditSheet: View {

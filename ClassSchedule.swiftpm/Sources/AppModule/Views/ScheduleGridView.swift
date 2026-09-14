@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 應用程式頂部主分頁類型
 public enum AppMainTab: String, CaseIterable, Identifiable {
@@ -93,7 +94,7 @@ public struct ScheduleGridView: View {
                 }
 
                 // MARK: 左上角功能選項選單按鈕 (課表頁面專屬)
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
                         Button {
                             showingSettingsSheet = true
@@ -129,7 +130,7 @@ public struct ScheduleGridView: View {
                 }
 
                 // MARK: 右上角兩個獨立分開的按鈕：「匯入課表」與「新增課程」
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: isPad ? 14 : 10) {
                         // 按鈕一：匯入課表 (iPad 顯示文字圖示，iPhone 顯示精簡純圖示以防止按鈕重疊)
                         Button {
@@ -731,7 +732,7 @@ struct CourseBlockCard: View {
             // 4. Apple 微光邊框（模擬玻璃折射 Specular Highlight + 主題色輪廓）
             .overlay(
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                    .strokeBorder(
+                    .stroke(
                         LinearGradient(
                             colors: [
                                 Color.white.opacity(0.40),

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 /// 課程狀態
@@ -111,8 +112,8 @@ public struct Course: Identifiable, Codable, Hashable {
 
     /// 解析學分整數 (如 "3學分" -> 3，若無或解析失敗則回傳 0)
     public var creditsInt: Int {
-        let numbers = credits.filter { $0.isNumber }
-        return Int(numbers) ?? 0
+        let digits = String(credits.filter { $0 >= "0" && $0 <= "9" })
+        return Int(digits) ?? 0
     }
 
     /// 對應系統顏色

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// 資源一鍵匯入課表視圖（通用大專院校課表匯入器，支援 PDF 檔案解析與剪貼簿文字智能識別）
