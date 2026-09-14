@@ -15,10 +15,10 @@
       "tintColor": "3478F6",
       "versions": [
         {
-          "version": "1.0.4",
+          "version": "1.0.5",
           "date": "2026-09-14",
-          "localizedDescription": "1. 支援 SideStore / AltStore 一鍵深度喚醒自動升級\n2. 提供 SideStore 官方源綁定功能，可在軟體源內直接點擊 UPDATE\n3. 全域 120Hz ProMotion 彈窗優化與 iPad 原生工具列風格",
-          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.4/ClassSchedule.ipa",
+          "localizedDescription": "1. 徹底還原 Apple Music 官方現代 UI：圓形導航按鈕（細緻盤面、立體邊框與觸覺縮放動效）\n2. 頂部流體毛玻璃動態膠囊分頁器（拋棄舊版普通方框，支援 spring 滑塊平移動態）\n3. 支援 SideStore 一鍵自動升級與官方源",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.5/ClassSchedule.ipa",
           "size": 15000000,
           "minOSVersion": "16.0"
         }

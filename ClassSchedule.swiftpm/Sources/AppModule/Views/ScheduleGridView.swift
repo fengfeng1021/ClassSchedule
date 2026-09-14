@@ -68,56 +68,30 @@ public struct ScheduleGridView: View {
     }
 
     public var body: some View {
-        let isPad = UIDevice.current.userInterfaceIdiom == .pad
-
         NavigationStack {
-            VStack(spacing: 0) {
-                // iPhone 專屬子分頁列（若為 iPhone 則在導航列下方呈現，iPad 則直接放頂部導航工具列中央）
-                if !isPad {
-                    HStack {
-                        Spacer(minLength: 0)
-                        Picker("主要頁面分頁", selection: $selectedTab) {
-                            ForEach(AppMainTab.allCases) { tab in
-                                Text(tab.rawValue).tag(tab)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(maxWidth: 380)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 6)
-                    .background(Color(uiColor: .systemGroupedBackground))
-                }
-
-                ZStack {
+            Group {
+                if selectedTab == .schedule {
                     scheduleMatrixContentView
-                        .opacity(selectedTab == .schedule ? 1 : 0)
-                        .allowsHitTesting(selectedTab == .schedule)
-
-                    if selectedTab == .widgetSettings {
-                        WidgetSettingsView(store: store)
-                            .transition(.opacity)
-                    }
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.985)),
+                            removal: .opacity
+                        ))
+                } else {
+                    WidgetSettingsView(store: store)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.985)),
+                            removal: .opacity
+                        ))
                 }
             }
-            .animation(.easeInOut(duration: 0.22), value: selectedTab)
+            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: selectedTab)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle(isPad ? "" : (selectedTab == .schedule ? "我的課表" : "小工具設定"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // iPad 專屬置中主分頁列 (iPad 螢幕空間充裕，完全還原 iPad Playground 居中設計)
-                if isPad {
-                    ToolbarItem(placement: .principal) {
-                        Picker("主要頁面分頁", selection: $selectedTab) {
-                            ForEach(AppMainTab.allCases) { tab in
-                                Text(tab.rawValue).tag(tab)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 240)
-                    }
+                // MARK: 頂部中央 Apple 官方流體毛玻璃動態膠囊分頁器 (課表 | 小工具設定，支援絲滑 spring 滑塊與觸覺反饋)
+                ToolbarItem(placement: .principal) {
+                    AppleLiquidCapsuleTabPicker(selectedTab: $selectedTab)
                 }
 
                 // 左上角選單按鈕（課表與小工具設定均可呼叫，保證樣式與導航體驗一致）
@@ -186,33 +160,63 @@ public struct ScheduleGridView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 16, weight: .semibold))
-                                .frame(width: 32, height: 32)
-                                .contentShape(Rectangle())
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 36, height: 36)
+                                .background(Color(uiColor: .secondarySystemFill), in: Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
+                                )
+                                .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1.5)
                         }
                 }
 
+                // MARK: 右上角兩個 Apple Music 招牌質感圓形按鈕
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
                         if selectedTab == .schedule {
+                            // 按鈕一：匯入課表 (Apple 圓盤毛玻璃材質按鈕)
                             Button {
                                 showingImportSheet = true
                             } label: {
                                 Image(systemName: "arrow.down.doc")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .frame(width: 32, height: 32)
-                                    .contentShape(Rectangle())
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 36, height: 36)
+                                    .background(Color(uiColor: .secondarySystemFill), in: Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
+                                    )
+                                    .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1.5)
                             }
+                            .buttonStyle(AppleScaleButtonStyle())
                             .accessibilityLabel("匯入課表")
 
+                            // 按鈕二：新增課程 (Apple 招牌微光藍色漸層圓形按鈕)
                             Button {
                                 courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 16, weight: .bold))
-                                    .frame(width: 32, height: 32)
-                                    .contentShape(Rectangle())
+                                    .foregroundStyle(.white)
+                                    .frame(width: 36, height: 36)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color.blue, Color(red: 0.08, green: 0.48, blue: 0.98)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        in: Circle()
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.28), lineWidth: 0.8)
+                                    )
+                                    .shadow(color: Color.blue.opacity(0.35), radius: 5, x: 0, y: 2)
                             }
+                            .buttonStyle(AppleScaleButtonStyle())
                             .accessibilityLabel("新增課程")
                         }
                     }
@@ -1057,5 +1061,71 @@ struct CourseBlockCard: View {
             Spacer(minLength: 0)
         }
         .padding(3)
+    }
+}
+
+// MARK: - Apple 官方第一方流體毛玻璃動態膠囊分頁器 (比照 Apple Music 最新互動動效與質感)
+
+public struct AppleLiquidCapsuleTabPicker: View {
+    @Binding var selectedTab: AppMainTab
+    @Namespace private var tabIndicatorNamespace
+
+    public init(selectedTab: Binding<AppMainTab>) {
+        self._selectedTab = selectedTab
+    }
+
+    public var body: some View {
+        HStack(spacing: 0) {
+            ForEach(AppMainTab.allCases) { tab in
+                let isSelected = selectedTab == tab
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        selectedTab = tab
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: tab == .schedule ? "calendar" : "square.grid.2x2")
+                            .font(.system(size: 11.5, weight: isSelected ? .bold : .medium))
+
+                        Text(tab.rawValue)
+                            .font(.system(size: 12.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                    }
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 9)
+                    .background {
+                        if isSelected {
+                            Capsule()
+                                .fill(Color(uiColor: .systemBackground))
+                                .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 1.5)
+                                .matchedGeometryEffect(id: "ACTIVE_CAPSULE_PILL", in: tabIndicatorNamespace)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2.5)
+        .background(
+            Capsule()
+                .fill(Color(uiColor: .tertiarySystemFill))
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.8)
+        )
+    }
+}
+
+// MARK: - Apple 觸覺彈性縮放按鈕樣式
+
+public struct AppleScaleButtonStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
