@@ -1,4 +1,4 @@
-﻿import Foundation
+import Foundation
 
 /// 结构化一天中的具体时间点 (小时:分钟)
 public struct TimeOfDay: Codable, Hashable, Comparable, Identifiable {

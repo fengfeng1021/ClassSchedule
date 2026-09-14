@@ -1,4 +1,4 @@
-﻿import SwiftUI
+import SwiftUI
 
 /// 课程状态
 public enum CourseStatus: String, Codable {
