@@ -42,6 +42,84 @@ jobs:
           echo "--- Info.plist verification ---"
           plutil -p "$APP_PATH/Info.plist" | grep -E "CADisable|UILaunch" || true
 
+          echo "=== Building Native WidgetKit Extension ==="
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
+          mkdir -p "$WIDGET_APPEX_DIR"
+
+          echo "Compiling ClassScheduleWidget with swiftc..."
+          xcrun -sdk iphoneos swiftc \
+            -target arm64-apple-ios16.0 \
+            -sdk "$SDK_PATH" \
+            -O \
+            -parse-as-library \
+            -emit-executable \
+            -o "$WIDGET_APPEX_DIR/ClassScheduleWidget" \
+            WidgetExtension/*.swift \
+            Sources/AppModule/Models/Course.swift \
+            Sources/AppModule/Models/Period.swift \
+            Sources/AppModule/Models/TimeOfDay.swift \
+            Sources/AppModule/Models/WidgetSettings.swift \
+            Sources/AppModule/Models/ScheduleSettings.swift \
+            Sources/AppModule/Models/ScheduleCalculator.swift \
+            -framework WidgetKit \
+            -framework SwiftUI \
+            -framework UIKit \
+            -framework Foundation
+
+          echo "Generating Widget Extension Info.plist..."
+          cat << 'EOF' > "$WIDGET_APPEX_DIR/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>zh_TW</string>
+    <key>CFBundleDisplayName</key>
+    <string>課表</string>
+    <key>CFBundleExecutable</key>
+    <string>ClassScheduleWidget</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.fengfeng.classschedule.widget</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>ClassScheduleWidget</string>
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.2</string>
+    <key>CFBundleVersion</key>
+    <string>3</string>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>iPhoneOS</string>
+    </array>
+    <key>MinimumOSVersion</key>
+    <string>16.0</string>
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>1</integer>
+        <integer>2</integer>
+    </array>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key>
+        <string>com.apple.widgetkit-extension</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+          echo "Ad-hoc signing Widget and App for sideloading tools..."
+          codesign -s - --force "$WIDGET_APPEX_DIR" || true
+          codesign -s - --force "$APP_PATH" || true
+
+          echo "=== WidgetKit Extension Verification ==="
+          ls -lh "$WIDGET_APPEX_DIR"
+          file "$WIDGET_APPEX_DIR/ClassScheduleWidget"
+          plutil -p "$WIDGET_APPEX_DIR/Info.plist"
+
           zip -qr ClassSchedule.ipa Payload
           ls -lh ClassSchedule.ipa
 
@@ -63,7 +141,7 @@ jobs:
           echo "Releasing $TAG..."
           gh release create "$TAG" ClassSchedule.swiftpm/ClassSchedule.ipa \
             --title "ClassSchedule iOS App ($TAG)" \
-            --notes "課表 iOS 原生應用程式安裝包 (IPA)。支援開啟 App 自動檢測更新、120Hz ProMotion 超高刷新率、Apple 原生液態毛玻璃質感，以及手機直向/平板橫向高清課表圖片匯出。" || \
+            --notes "課表 iOS 原生應用程式安裝包 (IPA)。全面支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、鎖定畫面，精確到分動態更新進度條與三種顯示模式）、開啟 App 自動檢測更新、120Hz ProMotion 超高刷新率、Apple 原生液態毛玻璃質感，以及手機直向/平板橫向高清課表圖片匯出。" || \
           gh release upload "$TAG" ClassSchedule.swiftpm/ClassSchedule.ipa --clobber
 
 

@@ -1,33 +1,8 @@
 import Foundation
 import SwiftUI
-/// 今日課程時間總進度資料模型（精確到分，每分鐘即時更新）
-public struct DayProgressInfo: Equatable {
-    public let percentage: Int     // 0 ~ 100
-    public let progress: Double    // 0.0 ~ 1.0
-    public let elapsedMinutes: Int
-    public let totalMinutes: Int
-    public let statusText: String
-    public let isCompleted: Bool
-    public let hasStarted: Bool
-
-    public init(
-        percentage: Int,
-        progress: Double,
-        elapsedMinutes: Int,
-        totalMinutes: Int,
-        statusText: String,
-        isCompleted: Bool,
-        hasStarted: Bool
-    ) {
-        self.percentage = percentage
-        self.progress = progress
-        self.elapsedMinutes = elapsedMinutes
-        self.totalMinutes = totalMinutes
-        self.statusText = statusText
-        self.isCompleted = isCompleted
-        self.hasStarted = hasStarted
-    }
-}
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 /// 課表核心資料管理與持久化中心（全正體中文）
 public final class CourseStore: ObservableObject {
@@ -36,6 +11,11 @@ public final class CourseStore: ObservableObject {
 
     private let coursesFilename = "courses.json"
     private let settingsFilename = "settings.json"
+    private let appGroupSuite = "group.com.fengfeng.classschedule"
+
+    private var sharedDefaults: UserDefaults? {
+        UserDefaults(suiteName: appGroupSuite)
+    }
 
     public init() {
         loadSettings()
@@ -43,75 +23,36 @@ public final class CourseStore: ObservableObject {
         if courses.isEmpty {
             self.courses = ScheduleParser.generalSampleCourses
             save()
+        } else {
+            syncToSharedGroup()
         }
     }
 
-    // MARK: - 查詢業務邏輯 (核心用於小組件、今日速覽與課表格狀定位)
+    // MARK: - 查詢業務邏輯 (委託 ScheduleCalculator 實現多端一致運算)
 
     /// 取得目前正在進行的課程
     public func currentCourse(at date: Date = Date(), calendar: Calendar = .current) -> Course? {
-        let dayOfWeek = normalizedDayOfWeek(from: date, calendar: calendar)
-        let now = TimeOfDay(date: date, calendar: calendar)
-        return courses.first { course in
-            course.dayOfWeek == dayOfWeek && now >= course.startTime && now <= course.endTime
-        }
+        ScheduleCalculator.currentCourse(in: courses, at: date, calendar: calendar)
     }
 
     /// 取得下一節即將開始的課程
     public func nextCourse(at date: Date = Date(), calendar: Calendar = .current) -> (course: Course, minutesUntil: Int)? {
-        let dayOfWeek = normalizedDayOfWeek(from: date, calendar: calendar)
-        let now = TimeOfDay(date: date, calendar: calendar)
-
-        let upcomingToday = courses
-            .filter { course in
-                course.dayOfWeek == dayOfWeek && course.startTime > now
-            }
-            .sorted { a, b in
-                a.startTime < b.startTime
-            }
-
-        if let next = upcomingToday.first {
-            let minutes = next.startTime.totalMinutes - now.totalMinutes
-            return (next, minutes)
-        }
-        return nil
+        ScheduleCalculator.nextCourse(in: courses, at: date, calendar: calendar)
     }
 
     /// 取得今天的所有課程 (按時間升序排序)
     public func todayCourses(at date: Date = Date(), calendar: Calendar = .current) -> [Course] {
-        let dayOfWeek = normalizedDayOfWeek(from: date, calendar: calendar)
-        return courses(for: dayOfWeek)
+        ScheduleCalculator.todayCourses(in: courses, at: date, calendar: calendar)
     }
 
     /// 取得今日課程時間總進度（精確至分，每過一分鐘動態更新百分比）
     public func todayProgress(at date: Date = Date(), calendar: Calendar = .current) -> DayProgressInfo {
-        let list = todayCourses(at: date, calendar: calendar)
-        guard !list.isEmpty else {
-            return DayProgressInfo(percentage: 0, progress: 0.0, elapsedMinutes: 0, totalMinutes: 0, statusText: "今日無課程", isCompleted: false, hasStarted: false)
-        }
-
-        let earliestStart = list.map { $0.startTime.totalMinutes }.min() ?? 0
-        let latestEnd = list.map { $0.endTime.totalMinutes }.max() ?? 0
-        let now = TimeOfDay(date: date, calendar: calendar).totalMinutes
-        let total = max(latestEnd - earliestStart, 1)
-
-        if now < earliestStart {
-            return DayProgressInfo(percentage: 0, progress: 0.0, elapsedMinutes: 0, totalMinutes: total, statusText: "尚未開始 · 0%", isCompleted: false, hasStarted: false)
-        } else if now >= latestEnd {
-            return DayProgressInfo(percentage: 100, progress: 1.0, elapsedMinutes: total, totalMinutes: total, statusText: "今日已全部完成 · 100%", isCompleted: true, hasStarted: true)
-        } else {
-            let elapsed = now - earliestStart
-            let frac = min(max(Double(elapsed) / Double(total), 0.0), 1.0)
-            let pct = min(max(Int(round(frac * 100.0)), 0), 100)
-            return DayProgressInfo(percentage: pct, progress: frac, elapsedMinutes: elapsed, totalMinutes: total, statusText: "今日進度 \(pct)%", isCompleted: false, hasStarted: true)
-        }
+        ScheduleCalculator.todayProgress(in: courses, at: date, calendar: calendar)
     }
 
     /// 取得某週幾的所有課程
     public func courses(for dayOfWeek: Int) -> [Course] {
-        courses
-            .filter { course in course.dayOfWeek == dayOfWeek }
-            .sorted { a, b in a.startTime < b.startTime }
+        ScheduleCalculator.courses(in: courses, for: dayOfWeek)
     }
 
     // MARK: - 碰撞防護與時段重疊檢測 (Collision Detection)
@@ -217,7 +158,7 @@ public final class CourseStore: ObservableObject {
         save()
     }
 
-    // MARK: - 資料持久化 (本機極速讀寫，杜絕沙盒 IPC 啟動阻塞)
+    // MARK: - 資料持久化與小組件同步 (雙向持久化至主沙盒與 App Group)
 
     private func storageURL(for filename: String) -> URL {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -229,11 +170,24 @@ public final class CourseStore: ObservableObject {
             let data = try JSONEncoder().encode(courses)
             let primaryURL = storageURL(for: coursesFilename)
             try data.write(to: primaryURL, options: [.atomicWrite])
+
+            // 同步寫入 App Group 共享區域供桌面小工具讀取
+            if let sharedDefaults = sharedDefaults {
+                sharedDefaults.set(data, forKey: "saved_courses")
+            }
+            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+                let groupURL = groupContainer.appendingPathComponent(coursesFilename)
+                try? data.write(to: groupURL, options: [.atomicWrite])
+            }
         } catch {
             print("[CourseStore] 儲存課程資料失敗: \(error)")
         }
 
         saveSettings()
+
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     public func saveSettings() {
@@ -241,9 +195,42 @@ public final class CourseStore: ObservableObject {
             let data = try JSONEncoder().encode(settings)
             let primaryURL = storageURL(for: settingsFilename)
             try data.write(to: primaryURL, options: [.atomicWrite])
+
+            // 同步寫入 App Group 共享區域供桌面小工具讀取
+            if let sharedDefaults = sharedDefaults {
+                sharedDefaults.set(data, forKey: "saved_settings")
+            }
+            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+                let groupURL = groupContainer.appendingPathComponent(settingsFilename)
+                try? data.write(to: groupURL, options: [.atomicWrite])
+            }
         } catch {
             print("[CourseStore] 儲存設定失敗: \(error)")
         }
+
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
+    }
+
+    private func syncToSharedGroup() {
+        if let data = try? JSONEncoder().encode(courses) {
+            sharedDefaults?.set(data, forKey: "saved_courses")
+            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+                let groupURL = groupContainer.appendingPathComponent(coursesFilename)
+                try? data.write(to: groupURL, options: [.atomicWrite])
+            }
+        }
+        if let data = try? JSONEncoder().encode(settings) {
+            sharedDefaults?.set(data, forKey: "saved_settings")
+            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+                let groupURL = groupContainer.appendingPathComponent(settingsFilename)
+                try? data.write(to: groupURL, options: [.atomicWrite])
+            }
+        }
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     private func loadCourses() {
@@ -251,6 +238,22 @@ public final class CourseStore: ObservableObject {
         if let data = try? Data(contentsOf: primaryURL),
            let decoded = try? JSONDecoder().decode([Course].self, from: data) {
             self.courses = decoded
+            return
+        }
+
+        if let data = sharedDefaults?.data(forKey: "saved_courses"),
+           let decoded = try? JSONDecoder().decode([Course].self, from: data) {
+            self.courses = decoded
+            return
+        }
+
+        if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+            let groupURL = groupContainer.appendingPathComponent(coursesFilename)
+            if let data = try? Data(contentsOf: groupURL),
+               let decoded = try? JSONDecoder().decode([Course].self, from: data) {
+                self.courses = decoded
+                return
+            }
         }
     }
 
@@ -259,6 +262,22 @@ public final class CourseStore: ObservableObject {
         if let data = try? Data(contentsOf: primaryURL),
            let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
             self.settings = decoded
+            return
+        }
+
+        if let data = sharedDefaults?.data(forKey: "saved_settings"),
+           let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
+            self.settings = decoded
+            return
+        }
+
+        if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+            let groupURL = groupContainer.appendingPathComponent(settingsFilename)
+            if let data = try? Data(contentsOf: groupURL),
+               let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
+                self.settings = decoded
+                return
+            }
         }
     }
 
@@ -294,7 +313,6 @@ public final class CourseStore: ObservableObject {
     // MARK: - 輔助計算
 
     public func normalizedDayOfWeek(from date: Date = Date(), calendar: Calendar = .current) -> Int {
-        let weekday = calendar.component(.weekday, from: date)
-        return weekday == 1 ? 7 : (weekday - 1)
+        ScheduleCalculator.normalizedDayOfWeek(from: date, calendar: calendar)
     }
 }
