@@ -62,6 +62,7 @@ public struct ScheduleSettings: Codable, Equatable {
     /// 目前實際參與渲染的活躍節次列表（自動過濾使用者未開啟的時段）
     public var activePeriods: [Period] {
         periods.filter { period in
+            guard period.isEnabled else { return false }
             if period.id == "M" && !showMorningM {
                 return false
             }

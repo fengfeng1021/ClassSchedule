@@ -1,30 +1,75 @@
 import Foundation
 
-/// 節次資料模型（支援大專院校常規節次、早自修 M、中午 N、夜間 R 及 1~14 節）
+/// 節次資料模型（支援全球大專院校與中學通用節次、自訂時長、自訂起訖時間）
 public struct Period: Identifiable, Codable, Hashable {
-    public var id: String           // 節次唯一標識（例如: "M", "1", "2", "3", "4", "N", "5", "6", "7", "8", "9", "R", "10", ...）
-    public var name: String         // 節次完整名稱（例如: "第 1 節", "中午 N", "第 5 節"）
-    public var shortName: String    // 簡稱（例如: "1", "N", "5"）
+    public var id: String           // 節次唯一標識（例如: "1", "2", "3", "M", "N", ...）
+    public var name: String         // 節次完整名稱（例如: "第 1 節", "第 2 節"）
+    public var shortName: String    // 簡稱（例如: "1", "2"）
     public var startTime: TimeOfDay // 開始時間點（例如: 08:10）
     public var endTime: TimeOfDay   // 結束時間點（例如: 09:00）
+    public var isEnabled: Bool      // 是否啟用此節次（預設 true）
 
     public init(
         id: String,
         name: String,
         shortName: String? = nil,
         startTime: TimeOfDay,
-        endTime: TimeOfDay
+        endTime: TimeOfDay,
+        isEnabled: Bool = true
     ) {
         self.id = id
         self.name = name
         self.shortName = shortName ?? id
         self.startTime = startTime
         self.endTime = endTime
+        self.isEnabled = isEnabled
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.shortName = try container.decodeIfPresent(String.self, forKey: .shortName) ?? id
+        self.startTime = try container.decode(TimeOfDay.self, forKey: .startTime)
+        self.endTime = try container.decode(TimeOfDay.self, forKey: .endTime)
+        self.isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
     }
 
     /// 格式化時間區間文字（例如: "08:10 - 09:00"）
     public var timeRangeString: String {
         "\(startTime.formatted) - \(endTime.formatted)"
+    }
+
+    /// 依據通用規則動態批次生成連續節次（適用於任何大專院校與高中）
+    public static func generatePeriods(
+        count: Int,
+        firstStartHour: Int,
+        firstStartMinute: Int,
+        periodDurationMinutes: Int,
+        breakDurationMinutes: Int
+    ) -> [Period] {
+        var result: [Period] = []
+        var currentMinutes = firstStartHour * 60 + firstStartMinute
+
+        for i in 1...max(count, 1) {
+            let startH = (currentMinutes / 60) % 24
+            let startM = currentMinutes % 60
+            let endMinutes = currentMinutes + periodDurationMinutes
+            let endH = (endMinutes / 60) % 24
+            let endM = endMinutes % 60
+
+            let period = Period(
+                id: "\(i)",
+                name: "第 \(i) 節",
+                shortName: "\(i)",
+                startTime: TimeOfDay(hour: startH, minute: startM),
+                endTime: TimeOfDay(hour: endH, minute: endM),
+                isEnabled: true
+            )
+            result.append(period)
+            currentMinutes = endMinutes + breakDurationMinutes
+        }
+        return result
     }
 
     /// 亞洲大學及多數大專院校標準節次時刻表預設集

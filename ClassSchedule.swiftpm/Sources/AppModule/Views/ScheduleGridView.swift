@@ -26,6 +26,7 @@ public struct ScheduleGridView: View {
 
     @State private var showingSettingsSheet = false
     @State private var showingImportSheet = false
+    @State private var showingExportSheet = false
     @State private var showingClearAlert = false
 
     // 拖曳縮放即時位移與觸覺步進狀態
@@ -122,6 +123,12 @@ public struct ScheduleGridView: View {
                                 Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
                             }
 
+                            Button {
+                                showingExportSheet = true
+                            } label: {
+                                Label("儲存課表圖片", systemImage: "square.and.arrow.down")
+                            }
+
                             Divider()
 
                             Button(role: .destructive) {
@@ -182,6 +189,9 @@ public struct ScheduleGridView: View {
             .sheet(isPresented: $showingImportSheet) {
                 ImportScheduleSheet(store: store)
             }
+            .sheet(isPresented: $showingExportSheet) {
+                CleanScheduleExportSheet(store: store)
+            }
             .alert("確定要清空課表？", isPresented: $showingClearAlert) {
                 Button("取消", role: .cancel) {}
                 Button("清空", role: .destructive) {
@@ -201,11 +211,13 @@ public struct ScheduleGridView: View {
 
     private var scheduleMatrixContentView: some View {
         VStack(spacing: 0) {
-            // 1. 頂部教室速查橫幅
-            classroomBanner
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
-                .padding(.bottom, 4)
+            // 1. 頂部教室速查橫幅 (僅在有進行中或下一節課程時顯示，課後自動完全隱藏以釋放畫面空間)
+            if store.currentCourse(at: currentDate) != nil || store.nextCourse(at: currentDate) != nil {
+                classroomBanner
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
+            }
 
             // 2. 星期標頭行 (固定頂部)
             weekdayHeaderRow
@@ -344,23 +356,6 @@ public struct ScheduleGridView: View {
                 )
             }
             .buttonStyle(.plain)
-
-        } else {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.teal)
-                Text(store.todayCourses(at: currentDate).isEmpty ? "今日無排課" : "今日課程已全部結束")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.6))
-            )
         }
     }
 

@@ -1,6 +1,33 @@
 import Foundation
 import SwiftUI
-import Combine
+/// 今日課程時間總進度資料模型（精確到分，每分鐘即時更新）
+public struct DayProgressInfo: Equatable {
+    public let percentage: Int     // 0 ~ 100
+    public let progress: Double    // 0.0 ~ 1.0
+    public let elapsedMinutes: Int
+    public let totalMinutes: Int
+    public let statusText: String
+    public let isCompleted: Bool
+    public let hasStarted: Bool
+
+    public init(
+        percentage: Int,
+        progress: Double,
+        elapsedMinutes: Int,
+        totalMinutes: Int,
+        statusText: String,
+        isCompleted: Bool,
+        hasStarted: Bool
+    ) {
+        self.percentage = percentage
+        self.progress = progress
+        self.elapsedMinutes = elapsedMinutes
+        self.totalMinutes = totalMinutes
+        self.statusText = statusText
+        self.isCompleted = isCompleted
+        self.hasStarted = hasStarted
+    }
+}
 
 /// 課表核心資料管理與持久化中心（全正體中文）
 public final class CourseStore: ObservableObject {
@@ -54,6 +81,30 @@ public final class CourseStore: ObservableObject {
     public func todayCourses(at date: Date = Date(), calendar: Calendar = .current) -> [Course] {
         let dayOfWeek = normalizedDayOfWeek(from: date, calendar: calendar)
         return courses(for: dayOfWeek)
+    }
+
+    /// 取得今日課程時間總進度（精確至分，每過一分鐘動態更新百分比）
+    public func todayProgress(at date: Date = Date(), calendar: Calendar = .current) -> DayProgressInfo {
+        let list = todayCourses(at: date, calendar: calendar)
+        guard !list.isEmpty else {
+            return DayProgressInfo(percentage: 0, progress: 0.0, elapsedMinutes: 0, totalMinutes: 0, statusText: "今日無課程", isCompleted: false, hasStarted: false)
+        }
+
+        let earliestStart = list.map { $0.startTime.totalMinutes }.min() ?? 0
+        let latestEnd = list.map { $0.endTime.totalMinutes }.max() ?? 0
+        let now = TimeOfDay(date: date, calendar: calendar).totalMinutes
+        let total = max(latestEnd - earliestStart, 1)
+
+        if now < earliestStart {
+            return DayProgressInfo(percentage: 0, progress: 0.0, elapsedMinutes: 0, totalMinutes: total, statusText: "尚未開始 · 0%", isCompleted: false, hasStarted: false)
+        } else if now >= latestEnd {
+            return DayProgressInfo(percentage: 100, progress: 1.0, elapsedMinutes: total, totalMinutes: total, statusText: "今日已全部完成 · 100%", isCompleted: true, hasStarted: true)
+        } else {
+            let elapsed = now - earliestStart
+            let frac = min(max(Double(elapsed) / Double(total), 0.0), 1.0)
+            let pct = min(max(Int(round(frac * 100.0)), 0), 100)
+            return DayProgressInfo(percentage: pct, progress: frac, elapsedMinutes: elapsed, totalMinutes: total, statusText: "今日進度 \(pct)%", isCompleted: false, hasStarted: true)
+        }
     }
 
     /// 取得某週幾的所有課程

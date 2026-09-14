@@ -6,6 +6,9 @@ public struct WidgetSettingsView: View {
     @State private var previewSize: WidgetPreviewSize = .medium
     @State private var mockDate = Date()
 
+    // 每分鐘輕量更新一次，使進度條真實跳動
+    private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
     public init(store: CourseStore) {
         self.store = store
     }
@@ -22,29 +25,28 @@ public struct WidgetSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 10)
 
-                // MARK: 2. 一鍵情境預設卡片 (操作極簡升級)
-                quickPresetsSection
-                    .padding(.horizontal, 16)
-
-                // MARK: 3. 顯示模式切換
+                // MARK: 2. 顯示模式切換
                 displayModeSection
                     .padding(.horizontal, 16)
 
-                // MARK: 4. 外觀主題配色
+                // MARK: 3. 外觀主題配色
                 themeSection
                     .padding(.horizontal, 16)
 
-                // MARK: 5. 顯示項目開關組
+                // MARK: 4. 顯示項目開關組
                 contentOptionsSection
                     .padding(.horizontal, 16)
 
-                // MARK: 6. 桌面小工具安裝指南
+                // MARK: 5. 桌面小工具安裝指南
                 tutorialSection
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
             }
         }
         .background(Color(uiColor: .systemGroupedBackground))
+        .onReceive(minuteTimer) { input in
+            mockDate = input
+        }
     }
 
     // MARK: - 1. 即時桌面小工具 Live 預覽區塊
@@ -52,7 +54,7 @@ public struct WidgetSettingsView: View {
     private var widgetLivePreviewSection: some View {
         VStack(spacing: 14) {
             HStack {
-                Label("桌面效果即時預覽", systemImage: "sparkles")
+                Text("桌面效果即時預覽")
                     .font(.headline)
                     .foregroundStyle(.primary)
 
@@ -76,7 +78,7 @@ public struct WidgetSettingsView: View {
 
             // 小工具預覽畫布卡片
             ZStack {
-                // 模擬 iOS 桌面壁紙微背景
+                // 模擬 iOS 桌面微背景
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(
                         LinearGradient(
@@ -122,26 +124,27 @@ public struct WidgetSettingsView: View {
         let current = store.currentCourse(at: mockDate)
         let next = store.nextCourse(at: mockDate)
         let todayList = store.todayCourses(at: mockDate)
+        let progress = store.todayProgress(at: mockDate)
 
         let targetCourse: Course? = current ?? next?.course ?? todayList.first ?? store.courses.first
 
         switch previewSize {
         case .small:
-            smallWidgetView(targetCourse: targetCourse, isCurrent: current != nil, minutesUntil: next?.minutesUntil)
+            smallWidgetView(targetCourse: targetCourse, current: current, next: next, todayList: todayList)
                 .frame(width: 155, height: 155)
                 .background(widgetBackground(for: targetCourse))
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
 
         case .medium:
-            mediumWidgetView(targetCourse: targetCourse, current: current, next: next, todayList: todayList)
+            mediumWidgetView(targetCourse: targetCourse, current: current, next: next, todayList: todayList, progress: progress)
                 .frame(maxWidth: 340, minHeight: 155, maxHeight: 155)
                 .background(widgetBackground(for: targetCourse))
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
 
         case .large:
-            largeWidgetView(targetCourse: targetCourse, current: current, next: next, todayList: todayList)
+            largeWidgetView(targetCourse: targetCourse, current: current, next: next, todayList: todayList, progress: progress)
                 .frame(maxWidth: 340, minHeight: 310, maxHeight: 310)
                 .background(widgetBackground(for: targetCourse))
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -157,173 +160,234 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // 小型小工具 (2x2)
-    @ViewBuilder
-    private func smallWidgetView(targetCourse: Course?, isCurrent: Bool, minutesUntil: Int?) -> some View {
-        if let course = targetCourse {
-            VStack(alignment: .leading, spacing: 6) {
-                // 狀態標籤
-                let countdownText: String = {
-                    if isCurrent { return "上課中" }
-                    if let m = minutesUntil { return "\(m)分後" }
-                    return "即將開始"
-                }()
+    // MARK: - 小型小工具 (2x2) — 3 種模式真實不同顯示效果
 
-                HStack {
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(isCurrent ? Color.green : course.color)
-                            .frame(width: 6, height: 6)
-                        Text(countdownText)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(isCurrent ? Color.green : course.color)
+    @ViewBuilder
+    private func smallWidgetView(targetCourse: Course?, current: Course?, next: (course: Course, minutesUntil: Int)?, todayList: [Course]) -> some View {
+        if let course = targetCourse {
+            switch settings.displayMode {
+            case .classroomFocus:
+                // 模式 1：教室速查（強調特大教室地點標籤與換堂導航）
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        let isCurrent = current != nil
+                        let statusColor = isCurrent ? Color.green : course.color
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(statusColor)
+                                .frame(width: 6, height: 6)
+                            Text(isCurrent ? "上課中" : (next != nil ? "\(next!.minutesUntil)分後" : "下一節"))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(statusColor)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(statusColor.opacity(0.14), in: Capsule())
+
+                        Spacer()
+
+                        if settings.showPeriodTime {
+                            Text(course.timeRangeString)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background((isCurrent ? Color.green : course.color).opacity(0.14), in: Capsule())
 
                     Spacer()
 
+                    // 醒目教室
+                    if settings.showClassroom && !course.classroom.isEmpty {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("上課教室")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 3) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 11))
+                                Text(course.classroom)
+                                    .font(.system(size: settings.highlightClassroom ? 24 : 18, weight: .black, design: .rounded))
+                            }
+                            .foregroundStyle(course.color)
+                        }
+                    }
+
+                    Text(course.name)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    if settings.showTeacher && !course.teacher.isEmpty {
+                        Text(course.teacher)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(12)
+
+            case .dailyTimeline:
+                // 模式 2：今日日程（條列今日課程清單）
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("今日日程")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text("共\(todayList.count)堂")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    if todayList.isEmpty {
+                        emptyWidgetContent
+                    } else {
+                        VStack(spacing: 5) {
+                            ForEach(todayList.prefix(2)) { c in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Circle()
+                                            .fill(c.color)
+                                            .frame(width: 5, height: 5)
+                                        Text(c.name)
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                    }
+
+                                    HStack(spacing: 4) {
+                                        if settings.showPeriodTime {
+                                            Text(c.startTime.formatted)
+                                                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                                                .monospacedDigit()
+                                                .foregroundStyle(.secondary)
+                                        }
+
+                                        if settings.showClassroom && !c.classroom.isEmpty {
+                                            Text("·")
+                                                .foregroundStyle(.secondary)
+                                            Text(c.classroom)
+                                                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                                .foregroundStyle(c.color)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 1)
+                            }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(12)
+
+            case .countdown:
+                // 模式 3：簡約倒數（極簡大字倒數時間）
+                VStack(spacing: 4) {
+                    Spacer()
+                    if current != nil {
+                        Text("課程進行中")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.green)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.green.opacity(0.12), in: Capsule())
+
+                        Text(course.name)
+                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .padding(.top, 2)
+                    } else if let next = next {
+                        Text("\(next.minutesUntil)")
+                            .font(.system(size: 38, weight: .black, design: .rounded))
+                            .foregroundStyle(.orange)
+                        Text("分鐘後上課")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+
+                        Text(course.name)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    } else {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundStyle(.blue)
+                        Text("今日無課")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if settings.showClassroom && !course.classroom.isEmpty {
+                        Text(course.classroom)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(course.color)
+                    }
+
                     if settings.showPeriodTime {
                         Text(course.timeRangeString)
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.tertiary)
                     }
+                    Spacer()
                 }
-
-                Spacer()
-
-                // 核心：特大醒目教室
-                if settings.showClassroom && !course.classroom.isEmpty {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("教室地點")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 3) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 11))
-                            Text(course.classroom)
-                                .font(.system(size: settings.highlightClassroom ? 24 : 19, weight: .black, design: .rounded))
-                        }
-                        .foregroundStyle(course.color)
-                    }
-                }
-
-                // 課程名稱
-                Text(course.name)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                // 教師與學分
-                if settings.showTeacher && !course.teacher.isEmpty {
-                    Text(course.teacher)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                .padding(10)
             }
-            .padding(12)
         } else {
             emptyWidgetContent
         }
     }
 
-    // 中型小工具 (2x4)
+    // MARK: - 中型小工具 (2x4) — 3 種模式真實不同 + 分鐘進度條
+
     @ViewBuilder
-    private func mediumWidgetView(targetCourse: Course?, current: Course?, next: (course: Course, minutesUntil: Int)?, todayList: [Course]) -> some View {
-        if settings.displayMode == .dailyTimeline {
-            // 今日日程時間線模式
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Label("今日課程清單", systemImage: "calendar")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text("共 \(todayList.count) 堂課")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-
-                Divider()
-
-                if todayList.isEmpty {
-                    emptyWidgetContent
-                } else {
-                    VStack(spacing: 5) {
-                        ForEach(todayList.prefix(3)) { c in
-                            HStack(spacing: 6) {
-                                Text(c.timeRangeString)
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .frame(width: 82, alignment: .leading)
-                                    .foregroundStyle(.primary)
-
-                                Text(c.name)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-
-                                Spacer()
-
-                                if settings.showClassroom && !c.classroom.isEmpty {
-                                    HStack(spacing: 2) {
-                                        Image(systemName: "location.fill")
-                                            .font(.system(size: 7))
-                                        Text(c.classroom)
-                                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    }
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(c.color.opacity(0.15), in: Capsule())
-                                    .foregroundStyle(c.color)
-                                }
-                            }
-                        }
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-
-        } else {
-            // 教室速查與倒數模式
-            if let course = targetCourse {
+    private func mediumWidgetView(
+        targetCourse: Course?,
+        current: Course?,
+        next: (course: Course, minutesUntil: Int)?,
+        todayList: [Course],
+        progress: DayProgressInfo
+    ) -> some View {
+        if let course = targetCourse {
+            switch settings.displayMode {
+            case .classroomFocus:
+                // 模式 1：教室速查（左右二分焦點）
                 HStack(spacing: 12) {
-                    // 左側：教室特大焦點
+                    // 左側：教室核心焦點
                     VStack(alignment: .leading, spacing: 4) {
+                        let isCurrent = current != nil
+                        let statusColor = isCurrent ? Color.green : course.color
                         HStack(spacing: 4) {
                             Circle()
-                                .fill(current != nil ? Color.green : course.color)
+                                .fill(statusColor)
                                 .frame(width: 7, height: 7)
-                            Text(current != nil ? "目前進行中" : "下一節課")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(current != nil ? Color.green : course.color)
+                            Text(isCurrent ? "目前進行中" : (next != nil ? "下一節" : "本日排課"))
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundStyle(statusColor)
                         }
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2.5)
-                        .background((current != nil ? Color.green : course.color).opacity(0.12), in: Capsule())
+                        .background(statusColor.opacity(0.12), in: Capsule())
 
                         Spacer()
 
-                        Text("上課教室")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                        if settings.showClassroom {
+                            Text("上課教室")
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.secondary)
 
-                        Text(course.classroom.isEmpty ? "未設定" : course.classroom)
-                            .font(.system(size: settings.highlightClassroom ? 32 : 26, weight: .black, design: .rounded))
-                            .foregroundStyle(course.color)
-                            .lineLimit(1)
+                            Text(course.classroom.isEmpty ? "未指定" : course.classroom)
+                                .font(.system(size: settings.highlightClassroom ? 30 : 22, weight: .black, design: .rounded))
+                                .foregroundStyle(course.color)
+                                .lineLimit(1)
+                        }
 
-                        if let next = next {
-                            Text("倒數 \(next.minutesUntil) 分鐘上課")
-                                .font(.system(size: 10.5, weight: .bold))
-                                .foregroundStyle(.orange)
-                        } else {
+                        if settings.showPeriodTime {
                             Text(course.timeRangeString)
-                                .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }
@@ -332,120 +396,387 @@ public struct WidgetSettingsView: View {
 
                     Divider()
 
-                    // 右側：課程詳情
-                    VStack(alignment: .leading, spacing: 6) {
+                    // 右側：課程詳情與今日進度條
+                    VStack(alignment: .leading, spacing: 5) {
                         Text(course.name)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.primary)
-                            .lineLimit(2)
+                            .lineLimit(1)
 
                         if settings.showTeacher && !course.teacher.isEmpty {
-                            Label(course.teacher, systemImage: "person.fill")
+                            Text(course.teacher)
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
 
                         if settings.showCredits && !course.credits.isEmpty {
-                            Label(course.credits, systemImage: "star.fill")
+                            Text(course.credits)
                                 .font(.system(size: 10))
-                                .foregroundStyle(.secondary.opacity(0.9))
+                                .foregroundStyle(.secondary.opacity(0.85))
                         }
 
                         Spacer()
 
-                        HStack(spacing: 5) {
-                            Text(course.periodSpanString)
-                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                            Text("·")
-                                .font(.system(size: 9, weight: .black))
-                            Text(course.timeRangeString)
-                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                        }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        // 今日課程時間百分比進度條（以分更新）
+                        progressBarView(progressInfo: progress, color: course.color)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(14)
-            } else {
-                emptyWidgetContent
-            }
-        }
-    }
 
-    // 大型小工具 (4x4)
-    @ViewBuilder
-    private func largeWidgetView(targetCourse: Course?, current: Course?, next: (course: Course, minutesUntil: Int)?, todayList: [Course]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // 頂部當前焦點橫幅
-            if let course = targetCourse {
-                HStack {
+            case .dailyTimeline:
+                // 模式 2：今日日程清單 + 進度條
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("今日課程清單")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text("共 \(todayList.count) 堂課")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if todayList.isEmpty {
+                        emptyWidgetContent
+                    } else {
+                        VStack(spacing: 5) {
+                            ForEach(todayList.prefix(2)) { c in
+                                HStack(spacing: 6) {
+                                    if settings.showPeriodTime {
+                                        Text(c.timeRangeString)
+                                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                            .monospacedDigit()
+                                            .frame(width: 80, alignment: .leading)
+                                            .foregroundStyle(.primary)
+                                    }
+
+                                    Text(c.name)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+
+                                    Spacer()
+
+                                    if settings.showTeacher && !c.teacher.isEmpty {
+                                        Text(c.teacher)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    if settings.showClassroom && !c.classroom.isEmpty {
+                                        Text(c.classroom)
+                                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(c.color.opacity(0.15), in: Capsule())
+                                            .foregroundStyle(c.color)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+
+                    // 今日課程時間百分比進度條
+                    progressBarView(progressInfo: progress, color: targetCourse?.color ?? .blue)
+                }
+                .padding(12)
+
+            case .countdown:
+                // 模式 3：簡約倒數儀表板 + 進度條
+                HStack(spacing: 14) {
+                    // 左側：倒數大數字
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(current != nil ? "● 進行中課程" : "▶ 下一節預告")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(current != nil ? Color.green : course.color)
+                        if current != nil {
+                            Text("上課中")
+                                .font(.system(size: 12, weight: .heavy))
+                                .foregroundStyle(.green)
+                            Text("進行中")
+                                .font(.system(size: 24, weight: .black, design: .rounded))
+                                .foregroundStyle(.green)
+                        } else if let next = next {
+                            Text("\(next.minutesUntil)")
+                                .font(.system(size: 38, weight: .black, design: .rounded))
+                                .foregroundStyle(.orange)
+                            Text("分鐘後開始")
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("全部完成")
+                                .font(.system(size: 16, weight: .black, design: .rounded))
+                                .foregroundStyle(.blue)
+                        }
 
+                        if settings.showPeriodTime {
+                            Text(course.timeRangeString)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: 100, alignment: .leading)
+
+                    Divider()
+
+                    // 右側：課堂概覽與進度條
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(course.name)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
-                    }
 
-                    Spacer()
-
-                    if settings.showClassroom && !course.classroom.isEmpty {
-                        HStack(spacing: 3) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 9))
+                        if settings.showClassroom && !course.classroom.isEmpty {
                             Text(course.classroom)
-                                .font(.system(size: 16, weight: .black, design: .rounded))
+                                .font(.system(size: settings.highlightClassroom ? 14 : 12, weight: .black, design: .rounded))
+                                .foregroundStyle(course.color)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(course.color.opacity(0.18), in: Capsule())
-                        .foregroundStyle(course.color)
+
+                        if settings.showTeacher && !course.teacher.isEmpty {
+                            Text(course.teacher)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        progressBarView(progressInfo: progress, color: targetCourse?.color ?? .blue)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(14)
+            }
+        } else {
+            emptyWidgetContent
+        }
+    }
+
+    // MARK: - 大型小工具 (4x4) — 3 種模式真實不同 + 分鐘進度條
+
+    @ViewBuilder
+    private func largeWidgetView(
+        targetCourse: Course?,
+        current: Course?,
+        next: (course: Course, minutesUntil: Int)?,
+        todayList: [Course],
+        progress: DayProgressInfo
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            switch settings.displayMode {
+            case .classroomFocus:
+                // 模式 1：教室速查全天大卡
+                if let course = targetCourse {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(current != nil ? "● 進行中課程" : "▶ 下一節預告")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(current != nil ? Color.green : course.color)
+
+                            Text(course.name)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        if settings.showClassroom && !course.classroom.isEmpty {
+                            HStack(spacing: 3) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 10))
+                                Text(course.classroom)
+                                    .font(.system(size: settings.highlightClassroom ? 18 : 14, weight: .black, design: .rounded))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(course.color.opacity(0.18), in: Capsule())
+                            .foregroundStyle(course.color)
+                        }
+                    }
+                    .padding(10)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                // 今日進度條
+                progressBarView(progressInfo: progress, color: targetCourse?.color ?? .blue)
+                    .padding(.vertical, 2)
+
+                Divider()
+
+                Text("今日教室速查表")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+
+                if todayList.isEmpty {
+                    emptyWidgetContent
+                } else {
+                    VStack(spacing: 6) {
+                        ForEach(todayList.prefix(4)) { c in
+                            HStack(spacing: 8) {
+                                if settings.showPeriodTime {
+                                    Text(c.timeRangeString)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .frame(width: 82, alignment: .leading)
+                                        .foregroundStyle(.primary)
+                                }
+
+                                Text(c.name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+
+                                Spacer()
+
+                                if settings.showClassroom && !c.classroom.isEmpty {
+                                    Text(c.classroom)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundStyle(c.color)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(c.color.opacity(0.12), in: Capsule())
+                                }
+                            }
+                            .padding(.vertical, 1.5)
+                        }
+                    }
+                }
+
+            case .dailyTimeline:
+                // 模式 2：今日全日程時間軸
+                HStack {
+                    Text("今日全日程進度")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text("共 \(todayList.count) 堂課")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+
+                progressBarView(progressInfo: progress, color: targetCourse?.color ?? .blue)
+                    .padding(.vertical, 2)
+
+                Divider()
+
+                if todayList.isEmpty {
+                    emptyWidgetContent
+                } else {
+                    VStack(spacing: 6) {
+                        ForEach(todayList.prefix(5)) { c in
+                            HStack(spacing: 8) {
+                                if settings.showPeriodTime {
+                                    Text(c.timeRangeString)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .frame(width: 82, alignment: .leading)
+                                        .foregroundStyle(.primary)
+                                }
+
+                                Text(c.name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+
+                                Spacer()
+
+                                if settings.showTeacher && !c.teacher.isEmpty {
+                                    Text(c.teacher)
+                                        .font(.system(size: 10.5))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                if settings.showCredits && !c.credits.isEmpty {
+                                    Text(c.credits)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary.opacity(0.8))
+                                }
+
+                                if settings.showClassroom && !c.classroom.isEmpty {
+                                    Text(c.classroom)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundStyle(c.color)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 1.5)
+                                        .background(c.color.opacity(0.12), in: Capsule())
+                                }
+                            }
+                            .padding(.vertical, 1)
+                        }
+                    }
+                }
+
+            case .countdown:
+                // 模式 3：簡約倒數大儀表板
+                VStack(alignment: .leading, spacing: 4) {
+                    if let next = next {
+                        HStack(spacing: 12) {
+                            Text("\(next.minutesUntil)")
+                                .font(.system(size: 44, weight: .black, design: .rounded))
+                                .foregroundStyle(.orange)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("分鐘後開始下一堂課")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                Text(next.course.name)
+                                    .font(.system(size: 14, weight: .heavy))
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                    } else if current != nil {
+                        Text("課堂進行中")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(.green)
+                        Text(current!.name)
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                    } else {
+                        Text("今日課程已全數完成")
+                            .font(.system(size: 16, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(10)
                 .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
 
-            Divider()
+                progressBarView(progressInfo: progress, color: targetCourse?.color ?? .blue)
+                    .padding(.vertical, 2)
 
-            // 課表清單列表
-            Text("今日課程進度表")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
+                Divider()
 
-            if todayList.isEmpty {
-                emptyWidgetContent
-            } else {
-                VStack(spacing: 6) {
-                    ForEach(todayList.prefix(5)) { c in
-                        HStack(spacing: 8) {
-                            Text(c.timeRangeString)
-                                .font(.system(size: 11.5, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                                .frame(width: 86, alignment: .leading)
-                                .foregroundStyle(.primary)
+                Text("後續待辦課程")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
 
-                            Text(c.name)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
+                if todayList.isEmpty {
+                    emptyWidgetContent
+                } else {
+                    VStack(spacing: 6) {
+                        ForEach(todayList.prefix(4)) { c in
+                            HStack(spacing: 8) {
+                                if settings.showPeriodTime {
+                                    Text(c.timeRangeString)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundStyle(.primary)
+                                }
 
-                            Spacer()
+                                Text(c.name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
 
-                            Text(c.classroom)
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundStyle(c.color)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1.5)
-                                .background(c.color.opacity(0.12), in: Capsule())
+                                Spacer()
+
+                                if settings.showClassroom && !c.classroom.isEmpty {
+                                    Text(c.classroom)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundStyle(c.color)
+                                }
+                            }
+                            .padding(.vertical, 1)
                         }
-                        .padding(.vertical, 2)
                     }
                 }
             }
@@ -453,6 +784,42 @@ public struct WidgetSettingsView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
+    }
+
+    // MARK: - 輔助：以分更新的百分比進度條
+
+    private func progressBarView(progressInfo: DayProgressInfo, color: Color) -> some View {
+        VStack(spacing: 3) {
+            HStack {
+                Text("今日進度")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(progressInfo.percentage)%")
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(color)
+            }
+
+            GeometryReader { barGeo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.08))
+                        .frame(height: 5)
+
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [color, color.opacity(0.75)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(barGeo.size.width * CGFloat(progressInfo.progress), progressInfo.progress > 0 ? 5 : 0), height: 5)
+                }
+            }
+            .frame(height: 5)
+        }
     }
 
     // 鎖定畫面小組件 (無多餘圖示、顯示完整時間範圍、支援全天結束樣式)
@@ -480,26 +847,30 @@ public struct WidgetSettingsView: View {
             .padding(.horizontal, 10)
         } else if let course = targetCourse {
             VStack(alignment: .leading, spacing: 2.5) {
-                // 課程名稱 (無多餘圖示，大字清晰)
                 Text(course.name)
                     .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
 
-                // 醒目教室代碼與完整時間範圍 (大字加粗)
                 HStack(spacing: 5) {
-                    Text(course.classroom)
-                        .font(.system(size: 12, weight: .black, design: .rounded))
-                        .foregroundStyle(.yellow)
+                    if settings.showClassroom && !course.classroom.isEmpty {
+                        Text(course.classroom)
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                            .foregroundStyle(.yellow)
+                    }
 
-                    Text("•")
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundStyle(.white.opacity(0.6))
+                    if settings.showPeriodTime {
+                        if settings.showClassroom && !course.classroom.isEmpty {
+                            Text("•")
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
 
-                    Text(course.timeRangeString)
-                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.92))
+                        Text(course.timeRangeString)
+                            .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.92))
+                    }
                 }
             }
             .padding(.horizontal, 10)
@@ -560,140 +931,7 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 2. 一鍵情境預設卡片 (操作極簡升級)
-
-    private var quickPresetsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("一鍵情境預設", systemImage: "wand.and.stars")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button {
-                    applyDefaultSettings()
-                } label: {
-                    Text("恢復預設")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.blue)
-                }
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    presetCard(
-                        title: "趕堂換教室",
-                        subtitle: "特大教室代號 · 30分提醒",
-                        icon: "mappin.and.ellipse",
-                        color: .orange,
-                        isActive: settings.displayMode == .classroomFocus && settings.highlightClassroom
-                    ) {
-                        applyPreset(.classroomFocus, theme: .softGradient, highlight: true, teacher: false, time: true, reminder: 30)
-                    }
-
-                    presetCard(
-                        title: "全日程管家",
-                        subtitle: "完整節次時段 · 課程教師",
-                        icon: "list.bullet.rectangle",
-                        color: .blue,
-                        isActive: settings.displayMode == .dailyTimeline
-                    ) {
-                        applyPreset(.dailyTimeline, theme: .courseColor, highlight: false, teacher: true, time: true, reminder: 15)
-                    }
-
-                    presetCard(
-                        title: "極簡專注",
-                        subtitle: "純黑極簡 · 簡約倒數",
-                        icon: "timer",
-                        color: .purple,
-                        isActive: settings.displayMode == .countdown && settings.theme == .darkOLED
-                    ) {
-                        applyPreset(.countdown, theme: .darkOLED, highlight: true, teacher: false, time: false, reminder: 30)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
-    private func presetCard(
-        title: String,
-        subtitle: String,
-        icon: String,
-        color: Color,
-        isActive: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    ZStack {
-                        Circle()
-                            .fill(color.opacity(0.18))
-                            .frame(width: 32, height: 32)
-                        Image(systemName: icon)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(color)
-                    }
-
-                    Spacer()
-
-                    if isActive {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.blue)
-                    }
-                }
-
-                Text(title)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                Text(subtitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .padding(12)
-            .frame(width: 150, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isActive ? Color.blue.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isActive ? Color.blue.opacity(0.35) : Color.primary.opacity(0.06), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func applyPreset(
-        _ mode: WidgetDisplayMode,
-        theme: WidgetTheme,
-        highlight: Bool,
-        teacher: Bool,
-        time: Bool,
-        reminder: Int
-    ) {
-        var updated = settings
-        updated.displayMode = mode
-        updated.theme = theme
-        updated.highlightClassroom = highlight
-        updated.showTeacher = teacher
-        updated.showPeriodTime = time
-        updated.upcomingReminderMinutes = reminder
-        store.updateWidgetSettings(updated)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-    }
-
-    private func applyDefaultSettings() {
-        store.updateWidgetSettings(WidgetSettings())
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-    }
-
-    // MARK: - 3. 顯示模式切換區塊
+    // MARK: - 2. 顯示模式切換區塊
 
     private var displayModeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -710,11 +948,6 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: mode.iconName)
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(settings.displayMode == mode ? .blue : .secondary)
-                                .frame(width: 28)
-
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(mode.rawValue)
                                     .font(.system(size: 15, weight: .bold))
@@ -749,7 +982,7 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 4. 外觀主題配色
+    // MARK: - 3. 外觀主題配色
 
     private var themeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -808,7 +1041,7 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 5. 顯示項目與提醒開關組 (Inset Grouped)
+    // MARK: - 4. 顯示項目與提醒開關組 (Inset Grouped)
 
     private var contentOptionsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -827,12 +1060,12 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
-                    Label("顯示教室位置", systemImage: "mappin.circle")
+                    Text("顯示教室位置")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
 
-                Divider().padding(.leading, 44)
+                Divider().padding(.leading, 14)
 
                 Toggle(isOn: Binding(
                     get: { settings.highlightClassroom },
@@ -843,14 +1076,14 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
-                    Label("教室代號特大加粗 (例如: M008)", systemImage: "textformat.size.larger")
+                    Text("教室代號特大加粗 (例如: M008)")
                 }
                 .disabled(!settings.showClassroom)
                 .opacity(settings.showClassroom ? 1.0 : 0.45)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
 
-                Divider().padding(.leading, 44)
+                Divider().padding(.leading, 14)
 
                 Toggle(isOn: Binding(
                     get: { settings.showTeacher },
@@ -861,12 +1094,12 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
-                    Label("顯示授課教師姓名", systemImage: "person.text.rectangle")
+                    Text("顯示授課教師姓名")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
 
-                Divider().padding(.leading, 44)
+                Divider().padding(.leading, 14)
 
                 Toggle(isOn: Binding(
                     get: { settings.showPeriodTime },
@@ -877,12 +1110,12 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
-                    Label("顯示上課節次與時段", systemImage: "clock")
+                    Text("顯示上課節次與時段")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
 
-                Divider().padding(.leading, 44)
+                Divider().padding(.leading, 14)
 
                 Toggle(isOn: Binding(
                     get: { settings.showCredits },
@@ -893,7 +1126,7 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
-                    Label("顯示學分數", systemImage: "rosette")
+                    Text("顯示學分數")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
@@ -906,7 +1139,7 @@ public struct WidgetSettingsView: View {
             // 提醒與提示卡片
             VStack(spacing: 0) {
                 HStack {
-                    Label("上課倒數提醒門檻", systemImage: "bell.badge")
+                    Text("上課倒數提醒門檻")
                     Spacer()
                     Picker("倒數提醒門檻", selection: Binding(
                         get: { settings.upcomingReminderMinutes },
@@ -927,7 +1160,7 @@ public struct WidgetSettingsView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
 
-                Divider().padding(.leading, 44)
+                Divider().padding(.leading, 14)
 
                 Toggle(isOn: Binding(
                     get: { settings.showInspirationalQuote },
@@ -938,7 +1171,7 @@ public struct WidgetSettingsView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
-                    Label("無課時顯示貼心提示語", systemImage: "quote.bubble")
+                    Text("無課時顯示貼心提示語")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
@@ -954,7 +1187,7 @@ public struct WidgetSettingsView: View {
 
     private var tutorialSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("如何將小工具加入桌面？", systemImage: "questionmark.circle.fill")
+            Text("如何將小工具加入桌面？")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(.secondary)
 

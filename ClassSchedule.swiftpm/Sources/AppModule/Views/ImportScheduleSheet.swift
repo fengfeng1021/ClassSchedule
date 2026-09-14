@@ -53,8 +53,6 @@ public struct ImportScheduleSheet: View {
                     }
                 } header: {
                     Text("PDF 檔案匯入")
-                } footer: {
-                    Text("支援各大專院校校務選課系統匯出的課表 PDF 檔案，App 會在您的 iPad 本地進行智能解析，絕不上傳伺服器。")
                 }
 
                 // MARK: 2. 剪貼簿文字貼上解析
@@ -68,7 +66,6 @@ public struct ImportScheduleSheet: View {
                     } label: {
                         HStack {
                             Spacer()
-                            Image(systemName: "wand.and.stars")
                             Text("智能解析並匯入")
                                 .fontWeight(.semibold)
                             Spacer()
