@@ -1,4 +1,4 @@
-name: Build and Verify iOS App
+name: Build and Package iOS IPA
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -20,4 +23,29 @@ jobs:
       - name: Build with xcodebuild
         run: |
           cd ClassSchedule.swiftpm
-          xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+          xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' -derivedDataPath ./build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Package IPA
+        run: |
+          cd ClassSchedule.swiftpm
+          mkdir -p Payload
+          cp -r build/Build/Products/*-iphoneos/*.app Payload/
+          zip -qr ClassSchedule.ipa Payload
+          ls -lh ClassSchedule.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClassSchedule-iOS-IPA
+          path: ClassSchedule.swiftpm/ClassSchedule.ipa
+          retention-days: 30
+
+      - name: Publish to GitHub Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v1.0.0 ClassSchedule.swiftpm/ClassSchedule.ipa \
+            --title "ClassSchedule iOS App (v1.0.0)" \
+            --notes "課表 iOS 原生應用程式安裝包 (IPA)。下載後可直接使用本機自簽工具（如輕鬆簽、牛蛙助手、TrollStore、AltStore、Scarlet 等）完成簽名安裝至 iPhone 或 iPad。" \
+            --clobber || true
