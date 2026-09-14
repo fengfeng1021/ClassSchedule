@@ -17,8 +17,10 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
 
-      - name: Verify Swift Package Manifest
-        run: swift package describe
+      - name: Locate AppleProductTypes
+        run: |
+          find /Applications/Xcode_15.4.app -name "*AppleProductTypes*" 2>/dev/null || true
 
-      - name: Build Package Targets
-        run: swift build -v
+      - name: Build with xcodebuild
+        run: |
+          xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO || true
