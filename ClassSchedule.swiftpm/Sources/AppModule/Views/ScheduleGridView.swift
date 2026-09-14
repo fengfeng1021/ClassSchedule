@@ -44,7 +44,11 @@ public struct ScheduleGridView: View {
     private let timer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
 
     private var timeColumnWidth: CGFloat {
-        UIDevice.current.userInterfaceIdiom == .pad ? 64.0 : 54.0
+        isPad ? 64.0 : 54.0
+    }
+
+    private var isPad: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
     }
 
     public init(store: CourseStore) {
@@ -91,7 +95,6 @@ public struct ScheduleGridView: View {
             .toolbar {
                 // MARK: 頂部中央 Apple 原生分頁器 (課表 | 小工具設定)
                 ToolbarItem(placement: .principal) {
-                    let isPad = UIDevice.current.userInterfaceIdiom == .pad
                     Picker("主要頁面分頁", selection: $selectedTab) {
                         ForEach(AppMainTab.allCases) { tab in
                             Text(tab.rawValue).tag(tab)
