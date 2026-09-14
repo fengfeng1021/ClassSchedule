@@ -6,7 +6,7 @@ struct ClassScheduleApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView(store: store)
+            ScheduleGridView(store: store)
                 .environmentObject(store)
         }
     }

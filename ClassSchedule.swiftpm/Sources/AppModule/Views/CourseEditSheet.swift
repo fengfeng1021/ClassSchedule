@@ -15,6 +15,7 @@ public struct CourseEditSheet: View {
     @State private var endDate: Date = Calendar.current.date(bySettingHour: 10, minute: 5, second: 0, of: Date()) ?? Date()
     @State private var selectedColor: String = "indigo"
     @State private var notes: String = ""
+    @State private var showingDeleteAlert = false
 
     private let availableColors = [
         "indigo", "blue", "teal", "mint", "green", "orange", "purple", "pink", "red"
@@ -24,9 +25,16 @@ public struct CourseEditSheet: View {
         courseToEdit != nil
     }
 
+    private var durationMinutes: Int {
+        let start = TimeOfDay(date: startDate)
+        let end = TimeOfDay(date: endDate)
+        return max(end.totalMinutes - start.totalMinutes, 0)
+    }
+
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !classroom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !classroom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        durationMinutes > 0
     }
 
     public init(store: CourseStore, courseToEdit: Course? = nil) {
@@ -68,11 +76,11 @@ public struct CourseEditSheet: View {
                 } header: {
                     Text("基本信息")
                 } footer: {
-                    Text("教室地点将在主界面和小工具以超大字号醒目呈现，助你快速准时赶往教室。")
+                    Text("教室地点将在课表与小工具中以醒目字号重点展示。")
                 }
 
                 // MARK: 时间与星期
-                Section("时间安排") {
+                Section {
                     Picker("星期", selection: $dayOfWeek) {
                         ForEach(1...7, id: \.self) { day in
                             Text(Course.dayName(for: day)).tag(day)
@@ -82,6 +90,15 @@ public struct CourseEditSheet: View {
 
                     DatePicker("开始时间", selection: $startDate, displayedComponents: .hourAndMinute)
                     DatePicker("结束时间", selection: $endDate, displayedComponents: .hourAndMinute)
+                } header: {
+                    Text("时间安排")
+                } footer: {
+                    if durationMinutes > 0 {
+                        Text("上课时长：\(durationMinutes) 分钟（将精确映射至课表时间轴对应位置）。")
+                    } else {
+                        Text("⚠️ 结束时间必须晚于开始时间。")
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 // MARK: 课程主题色
@@ -117,12 +134,27 @@ public struct CourseEditSheet: View {
                 }
 
                 // MARK: 备注说明
-                Section("备注与说明") {
-                    TextField("选修/必修、携带课本、考核要求等...", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
+                Section("备注与考核说明") {
+                    TextField("选修/必修、携带教材、课堂小测要求等...", text: $notes, axis: .vertical)
+                        .lineLimit(3...5)
+                }
+
+                // MARK: 编辑时提供删除操作
+                if isEditing {
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteAlert = true
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("删除此课程")
+                                Spacer()
+                            }
+                        }
+                    }
                 }
             }
-            .navigationTitle(isEditing ? "编辑课程" : "新增课程")
+            .navigationTitle(isEditing ? "编辑课程" : "添加课程")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -131,13 +163,24 @@ public struct CourseEditSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
+                    Button("保存") {
                         saveCourse()
                         dismiss()
                     }
                     .disabled(!isValid)
                     .fontWeight(.semibold)
                 }
+            }
+            .alert("确认删除课程？", isPresented: $showingDeleteAlert) {
+                Button("取消", role: .cancel) {}
+                Button("删除", role: .destructive) {
+                    if let course = courseToEdit {
+                        store.delete(course)
+                    }
+                    dismiss()
+                }
+            } message: {
+                Text("删除后无法恢复该课程的时间与教室记录。")
             }
             .onAppear {
                 initializeData()

@@ -5,11 +5,14 @@ import Combine
 /// 课表核心数据管理与持久化中心
 public final class CourseStore: ObservableObject {
     @Published public var courses: [Course] = []
+    @Published public var settings: ScheduleSettings = ScheduleSettings()
 
-    private let filename = "courses.json"
+    private let coursesFilename = "courses.json"
+    private let settingsFilename = "settings.json"
     private let appGroupSuite = "group.com.fengfeng.classschedule"
 
     public init() {
+        loadSettings()
         loadCourses()
         if courses.isEmpty {
             loadSampleCourses()
@@ -62,7 +65,7 @@ public final class CourseStore: ObservableObject {
 
     // MARK: - 数据持久化 (兼容 App Group 共享)
 
-    private var storageURL: URL {
+    private func storageURL(for filename: String) -> URL {
         if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
             return containerURL.appendingPathComponent(filename)
         }
@@ -71,32 +74,63 @@ public final class CourseStore: ObservableObject {
     }
 
     public func save() {
+        // 保存课程列表
         do {
             let data = try JSONEncoder().encode(courses)
-            try data.write(to: storageURL, options: [.atomicWrite])
+            let primaryURL = storageURL(for: coursesFilename)
+            try data.write(to: primaryURL, options: [.atomicWrite])
 
-            // 同时备份一份到标准 Documents 目录以确保双保险
-            let backupDocs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let backupURL = backupDocs.appendingPathComponent(filename)
+            // 备份到 Documents
+            let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(coursesFilename)
             try? data.write(to: backupURL, options: [.atomicWrite])
         } catch {
             print("[CourseStore] 保存课程数据失败: \(error)")
         }
+
+        // 保存课表设置
+        saveSettings()
+    }
+
+    public func saveSettings() {
+        do {
+            let data = try JSONEncoder().encode(settings)
+            let primaryURL = storageURL(for: settingsFilename)
+            try data.write(to: primaryURL, options: [.atomicWrite])
+
+            let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(settingsFilename)
+            try? data.write(to: backupURL, options: [.atomicWrite])
+        } catch {
+            print("[CourseStore] 保存设置失败: \(error)")
+        }
     }
 
     private func loadCourses() {
-        if let data = try? Data(contentsOf: storageURL),
+        let primaryURL = storageURL(for: coursesFilename)
+        if let data = try? Data(contentsOf: primaryURL),
            let decoded = try? JSONDecoder().decode([Course].self, from: data) {
             self.courses = decoded
             return
         }
 
-        // 尝试从备用 Documents 路径恢复
-        let backupDocs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let backupURL = backupDocs.appendingPathComponent(filename)
+        let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(coursesFilename)
         if let data = try? Data(contentsOf: backupURL),
            let decoded = try? JSONDecoder().decode([Course].self, from: data) {
             self.courses = decoded
+        }
+    }
+
+    private func loadSettings() {
+        let primaryURL = storageURL(for: settingsFilename)
+        if let data = try? Data(contentsOf: primaryURL),
+           let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
+            self.settings = decoded
+            return
+        }
+
+        let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(settingsFilename)
+        if let data = try? Data(contentsOf: backupURL),
+           let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
+            self.settings = decoded
         }
     }
 
@@ -125,9 +159,14 @@ public final class CourseStore: ObservableObject {
         save()
     }
 
+    public func updateSettings(_ newSettings: ScheduleSettings) {
+        self.settings = newSettings
+        saveSettings()
+    }
+
     // MARK: - 辅助计算
 
-    private func normalizedDayOfWeek(from date: Date, calendar: Calendar) -> Int {
+    public func normalizedDayOfWeek(from date: Date = Date(), calendar: Calendar = .current) -> Int {
         let weekday = calendar.component(.weekday, from: date)
         return weekday == 1 ? 7 : (weekday - 1)
     }
@@ -144,7 +183,7 @@ public final class CourseStore: ObservableObject {
                 startTime: TimeOfDay(hour: 8, minute: 30),
                 endTime: TimeOfDay(hour: 10, minute: 5),
                 colorName: "indigo",
-                notes: "必修课，记得带微积分教材与作业本"
+                notes: "必修课，带微积分教材"
             ),
             Course(
                 name: "计算机网络体系",
@@ -154,17 +193,17 @@ public final class CourseStore: ObservableObject {
                 startTime: TimeOfDay(hour: 10, minute: 25),
                 endTime: TimeOfDay(hour: 12, minute: 0),
                 colorName: "blue",
-                notes: "需使用 Wireshark 抓包实验"
+                notes: "Wireshark 抓包实验"
             ),
             Course(
                 name: "大学通用英语 (IV)",
                 teacher: "Sarah Johnson",
                 classroom: "文科楼 108",
-                dayOfWeek: 1,
+                dayOfWeek: 2,
                 startTime: TimeOfDay(hour: 14, minute: 0),
                 endTime: TimeOfDay(hour: 15, minute: 35),
                 colorName: "orange",
-                notes: "小组 Presentation 展示"
+                notes: "小组 Presentation"
             ),
             Course(
                 name: "数据结构与算法",
@@ -174,17 +213,17 @@ public final class CourseStore: ObservableObject {
                 startTime: TimeOfDay(hour: 8, minute: 30),
                 endTime: TimeOfDay(hour: 10, minute: 5),
                 colorName: "purple",
-                notes: "红黑树与图的最短路径算法"
+                notes: "红黑树与最短路径"
             ),
             Course(
                 name: "线性代数",
                 teacher: "刘敏 教授",
                 classroom: "教三楼 104",
                 dayOfWeek: 3,
-                startTime: TimeOfDay(hour: 9, minute: 20),
-                endTime: TimeOfDay(hour: 11, minute: 0),
+                startTime: TimeOfDay(hour: 9, minute: 0),
+                endTime: TimeOfDay(hour: 10, minute: 40),
                 colorName: "teal",
-                notes: "特征值与特征向量应用"
+                notes: "特征值与特征向量"
             ),
             Course(
                 name: "操作系统核心原理",
@@ -194,17 +233,17 @@ public final class CourseStore: ObservableObject {
                 startTime: TimeOfDay(hour: 14, minute: 0),
                 endTime: TimeOfDay(hour: 16, minute: 30),
                 colorName: "mint",
-                notes: "进程并发与虚拟内存管理"
+                notes: "进程并发与虚拟内存"
             ),
             Course(
-                name: "移动应用人机交互设计",
+                name: "移动应用交互设计",
                 teacher: "王雪峰 讲师",
                 classroom: "艺术楼 502",
                 dayOfWeek: 5,
                 startTime: TimeOfDay(hour: 10, minute: 25),
                 endTime: TimeOfDay(hour: 12, minute: 0),
                 colorName: "pink",
-                notes: "Apple HIG 人机界面设计规范实操"
+                notes: "Apple HIG 人机设计规范实操"
             )
         ]
         save()
