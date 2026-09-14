@@ -10,15 +10,23 @@
       "bundleIdentifier": "com.fengfeng.classschedule",
       "developerName": "fengfeng",
       "subtitle": "桌面小工具與 120Hz 質感課表",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "versionDate": "2026-09-14",
-      "versionDescription": "1. 全面升級至 Xcode 16 (iOS 18 SDK) 與 Release 最佳化編譯，徹底啟動 iPadOS 18 官方原生動態液態玻璃與流體動態\n2. 工具列全面套用 Apple 官方 .bordered 圓形底盤規範，還原 Playground 1:1 單層質感\n3. SideStore 0.7.0 擴展專屬指引：在「Experimental Features」開啟「Use Main Profile for Extensions」即可完美支援小工具\n4. 小工具設定頁面新增「快捷加入桌面小工具」一鍵直達桌面",
-      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.8/ClassSchedule.ipa",
+      "versionDescription": "1. 完美還原 Swift Playgrounds 1:1 質感：頂部恢復 Apple 官方流體動態毛玻璃膠囊分頁器（拋棄舊版普通方框，支援 spring 滑塊平移動態與觸覺震動）\n2. 工具列全面套用 Apple 官方原生 .bordered 圓形按鈕規範，在 iPad 與 iPhone 原生呈現單層液態毛玻璃底框，徹底解決無底框與雙層外框問題\n3. 全面升級 WidgetKit 小工具：適配 iOS 17/18 (iOS 27) ExtensionKit 架構與 EXAppExtensionAttributes，補齊系統動態連結庫與 DER 編碼權限\n4. 支援 SideStore 0.7.0 一鍵無感覆蓋更新與自動小工具註冊",
+      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.9/ClassSchedule.ipa",
       "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、鎖定畫面）\n• 全域 120Hz ProMotion 超高刷新率優化\n• 原生質感設計與 iPad 原生工具列風格\n• 支援無感覆蓋更新，完美保留現有課表資料",
       "iconURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/AppIcon.png",
       "tintColor": "3478F6",
       "size": 15000000,
       "versions": [
+        {
+          "version": "1.0.9",
+          "date": "2026-09-14",
+          "localizedDescription": "1. 完美還原 Swift Playgrounds 1:1 質感：頂部恢復 Apple 官方流體動態毛玻璃膠囊分頁器（拋棄舊版普通方框，支援 spring 滑塊平移動態與觸覺震動）\n2. 工具列全面套用 Apple 官方原生 .bordered 圓形按鈕規範，在 iPad 與 iPhone 原生呈現單層液態毛玻璃底框，徹底解決無底框与雙層外框問題\n3. 全面升級 WidgetKit 小工具：適配 iOS 17/18 (iOS 27) ExtensionKit 架構與 EXAppExtensionAttributes，補齊系統動態連結庫與 DER 編碼權限\n4. 支援 SideStore 0.7.0 一鍵無感覆蓋更新與自動小工具註冊",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.9/ClassSchedule.ipa",
+          "size": 15000000,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "1.0.8",
           "date": "2026-09-14",

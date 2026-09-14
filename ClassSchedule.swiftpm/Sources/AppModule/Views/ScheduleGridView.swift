@@ -197,15 +197,9 @@ public struct ScheduleGridView: View {
 
     @ToolbarContentBuilder
     private var mainToolbarContent: some ToolbarContent {
-        // MARK: 頂部中央 Apple 原生分頁器 (課表 | 小工具設定)
+        // MARK: 頂部中央 Apple 原生流體毛玻璃動態膠囊分頁器 (課表 | 小工具設定)
         ToolbarItem(placement: .principal) {
-            Picker("主要頁面分頁", selection: $selectedTab) {
-                ForEach(AppMainTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: isPad ? 260 : 185)
+            AppleLiquidCapsuleTabPicker(selectedTab: $selectedTab)
         }
 
         // 左上角選單按鈕（課表自訂設定、外觀模式、匯出與清空）
@@ -276,18 +270,25 @@ public struct ScheduleGridView: View {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .semibold))
             }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.circle)
+            .tint(.primary)
+            .accessibilityLabel("選單與設定")
         }
 
         // MARK: 右上角 Apple 原生工具列按鈕（匯入課表、新增課程）
         ToolbarItem(placement: .navigationBarTrailing) {
             if selectedTab == .schedule {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Button {
                         showingImportSheet = true
                     } label: {
                         Image(systemName: "arrow.down.doc")
                             .font(.system(size: 14.5, weight: .semibold))
                     }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.circle)
+                    .tint(.primary)
                     .accessibilityLabel("匯入課表")
 
                     Button {
@@ -296,6 +297,9 @@ public struct ScheduleGridView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .bold))
                     }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .tint(.blue)
                     .accessibilityLabel("新增課程")
                 }
             }
@@ -1045,5 +1049,60 @@ struct CourseBlockCard: View {
         .padding(3)
     }
 }
+
+// MARK: - Apple 官方第一方流體毛玻璃動態膠囊分頁器 (比照 Apple Music 最新互動動效與質感)
+
+public struct AppleLiquidCapsuleTabPicker: View {
+    @Binding var selectedTab: AppMainTab
+    @Namespace private var tabIndicatorNamespace
+
+    public init(selectedTab: Binding<AppMainTab>) {
+        self._selectedTab = selectedTab
+    }
+
+    public var body: some View {
+        HStack(spacing: 2) {
+            ForEach(AppMainTab.allCases) { tab in
+                let isSelected = selectedTab == tab
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        selectedTab = tab
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: tab == .schedule ? "calendar" : "square.grid.2x2")
+                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+
+                        Text(tab.rawValue)
+                            .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
+                    }
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 14)
+                    .background {
+                        if isSelected {
+                            Capsule()
+                                .fill(Color(uiColor: .systemBackground))
+                                .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 1.5)
+                                .matchedGeometryEffect(id: "ACTIVE_CAPSULE_PILL", in: tabIndicatorNamespace)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(
+            Capsule()
+                .fill(Color(uiColor: .tertiarySystemFill))
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.8)
+        )
+    }
+}
+
 
 
