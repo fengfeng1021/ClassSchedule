@@ -28,6 +28,11 @@ public struct ScheduleSettingsSheet: View {
 
     public init(store: CourseStore) {
         self.store = store
+        _periods = State(initialValue: store.settings.periods)
+        _appearanceMode = State(initialValue: store.settings.appearanceMode)
+        _showWeekend = State(initialValue: store.settings.showWeekend)
+        _showCredits = State(initialValue: store.settings.showCredits)
+        _showTeacher = State(initialValue: store.settings.showTeacher)
     }
 
     public var body: some View {
@@ -200,13 +205,6 @@ public struct ScheduleSettingsSheet: View {
                 }
             } message: {
                 Text("此動作不可撤銷，已排入的課程資料將全數移除。")
-            }
-            .onAppear {
-                self.periods = store.settings.periods
-                self.appearanceMode = store.settings.appearanceMode
-                self.showWeekend = store.settings.showWeekend
-                self.showCredits = store.settings.showCredits
-                self.showTeacher = store.settings.showTeacher
             }
         }
     }

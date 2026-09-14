@@ -76,43 +76,32 @@ public struct WidgetSettingsView: View {
             }
             .pickerStyle(.segmented)
 
-            // 小工具預覽畫布卡片
+            // 小工具預覽畫布卡片 (乾淨系統風格，適配淺色/深色模式，與 iPad Playground 保持一致)
             ZStack {
-                // 模擬 iOS 桌面生動微光背景 (讓液態毛玻璃效果在真機上完美折射顯現)
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.18, green: 0.28, blue: 0.44),
-                                Color(red: 0.12, green: 0.16, blue: 0.28),
-                                Color(red: 0.22, green: 0.18, blue: 0.32)
+                                Color(uiColor: .secondarySystemGroupedBackground),
+                                Color(uiColor: .tertiarySystemGroupedBackground)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.25),
-                                        Color.clear
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                     )
 
-                // 實際渲染的小工具模型
+                // 實際渲染的小工具模型 (在手機螢幕上留出充分邊距，杜絕內容擠壓)
                 widgetCardRenderer
-                    .padding(18)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 14)
             }
             .frame(minHeight: previewCanvasHeight)
         }
-        .padding(16)
+        .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
@@ -314,7 +303,8 @@ public struct WidgetSettingsView: View {
                             .padding(.top, 2)
                     } else if let next = next {
                         Text("\(next.minutesUntil)")
-                            .font(.system(size: 38, weight: .black, design: .rounded))
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                                .minimumScaleFactor(0.8)
                             .foregroundStyle(.orange)
                         Text("分鐘後上課")
                             .font(.system(size: 10, weight: .bold))
@@ -392,16 +382,19 @@ public struct WidgetSettingsView: View {
                                 .foregroundStyle(.secondary)
 
                             Text(course.classroom.isEmpty ? "未指定" : course.classroom)
-                                .font(.system(size: settings.highlightClassroom ? 30 : 22, weight: .black, design: .rounded))
+                                .font(.system(size: settings.highlightClassroom ? 26 : 20, weight: .black, design: .rounded))
                                 .foregroundStyle(course.color)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.65)
                         }
 
                         if settings.showPeriodTime {
                             Text(course.timeRangeString)
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -454,13 +447,13 @@ public struct WidgetSettingsView: View {
                     } else {
                         VStack(spacing: 5) {
                             ForEach(todayList.prefix(2)) { c in
-                                HStack(spacing: 6) {
+                                HStack(spacing: 4) {
                                     if settings.showPeriodTime {
                                         Text(c.timeRangeString)
-                                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                                             .monospacedDigit()
-                                            .frame(width: 80, alignment: .leading)
                                             .foregroundStyle(.primary)
+                                            .lineLimit(1)
                                     }
 
                                     Text(c.name)
@@ -468,21 +461,23 @@ public struct WidgetSettingsView: View {
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
 
-                                    Spacer()
+                                    Spacer(minLength: 4)
 
                                     if settings.showTeacher && !c.teacher.isEmpty {
                                         Text(c.teacher)
-                                            .font(.system(size: 10))
+                                            .font(.system(size: 9.5))
                                             .foregroundStyle(.secondary)
+                                            .lineLimit(1)
                                     }
 
                                     if settings.showClassroom && !c.classroom.isEmpty {
                                         Text(c.classroom)
-                                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
+                                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1.5)
                                             .background(c.color.opacity(0.15), in: Capsule())
                                             .foregroundStyle(c.color)
+                                            .lineLimit(1)
                                     }
                                 }
                             }
@@ -510,7 +505,8 @@ public struct WidgetSettingsView: View {
                                 .foregroundStyle(.green)
                         } else if let next = next {
                             Text("\(next.minutesUntil)")
-                                .font(.system(size: 38, weight: .black, design: .rounded))
+                                .font(.system(size: 34, weight: .black, design: .rounded))
+                                .minimumScaleFactor(0.8)
                                 .foregroundStyle(.orange)
                             Text("分鐘後開始")
                                 .font(.system(size: 10.5, weight: .bold))
@@ -528,7 +524,7 @@ public struct WidgetSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(width: 100, alignment: .leading)
+                    .frame(minWidth: 80, maxWidth: 95, alignment: .leading)
 
                     Divider()
 
@@ -911,51 +907,35 @@ public struct WidgetSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // 小工具背景外觀處理 (支援 Apple 原生液態毛玻璃材質)
+    // 小工具背景外觀處理 (還原 iPad Playground 乾淨清晰的系統外觀)
     @ViewBuilder
     private func widgetBackground(for course: Course?) -> some View {
         switch settings.theme {
         case .systemBlur:
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.35),
-                        Color.white.opacity(0.08),
-                        Color.clear
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            Color(uiColor: .systemBackground)
         case .courseColor:
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(
-                    colors: [
-                        (course?.color ?? .blue).opacity(0.35),
-                        (course?.color ?? .blue).opacity(0.12),
-                        Color.clear
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            LinearGradient(
+                colors: [
+                    (course?.color ?? .blue).opacity(0.22),
+                    (course?.color ?? .blue).opacity(0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .background(Color(uiColor: .systemBackground))
         case .darkOLED:
             Color.black
         case .softGradient:
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(
-                    colors: [
-                        Color.blue.opacity(0.20),
-                        Color.purple.opacity(0.14),
-                        Color.pink.opacity(0.08)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            LinearGradient(
+                colors: [
+                    Color.blue.opacity(0.15),
+                    Color.purple.opacity(0.12),
+                    Color.pink.opacity(0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .background(Color(uiColor: .systemBackground))
         }
     }
 

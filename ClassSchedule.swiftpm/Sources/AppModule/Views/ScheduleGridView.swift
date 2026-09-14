@@ -68,30 +68,28 @@ public struct ScheduleGridView: View {
     }
 
     public var body: some View {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+
         NavigationStack {
             VStack(spacing: 0) {
-                // MARK: 頂部主分頁切換列 (獨立成行，iPad/iPhone/分屏全尺寸 100% 絕無互相遮擋)
-                HStack {
-                    Spacer(minLength: 0)
-                    Picker("主要頁面分頁", selection: $selectedTab) {
-                        ForEach(AppMainTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
+                // iPhone 專屬子分頁列（若為 iPhone 則在導航列下方呈現，iPad 則直接放頂部導航工具列中央）
+                if !isPad {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Picker("主要頁面分頁", selection: $selectedTab) {
+                            ForEach(AppMainTab.allCases) { tab in
+                                Text(tab.rawValue).tag(tab)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 380)
+                        Spacer(minLength: 0)
                     }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 380)
-                    Spacer(minLength: 0)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 6)
+                    .background(Color(uiColor: .systemGroupedBackground))
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 6)
-                .background(.ultraThinMaterial)
-                .overlay(
-                    Rectangle()
-                        .fill(Color.primary.opacity(0.06))
-                        .frame(height: 0.5),
-                    alignment: .bottom
-                )
 
                 ZStack {
                     scheduleMatrixContentView
@@ -106,13 +104,25 @@ public struct ScheduleGridView: View {
             }
             .animation(.easeInOut(duration: 0.22), value: selectedTab)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle(selectedTab == .schedule ? "我的課表" : "小工具設定")
+            .navigationTitle(isPad ? "" : (selectedTab == .schedule ? "我的課表" : "小工具設定"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // 課表頁面專屬功能按鈕（切換至小工具設定時徹底卸載，不佔位）
-                if selectedTab == .schedule {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Menu {
+                // iPad 專屬置中主分頁列 (iPad 螢幕空間充裕，完全還原 iPad Playground 居中設計)
+                if isPad {
+                    ToolbarItem(placement: .principal) {
+                        Picker("主要頁面分頁", selection: $selectedTab) {
+                            ForEach(AppMainTab.allCases) { tab in
+                                Text(tab.rawValue).tag(tab)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 240)
+                    }
+                }
+
+                // 左上角選單按鈕（課表與小工具設定均可呼叫，保證樣式與導航體驗一致）
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Menu {
                             Button {
                                 showingSettingsSheet = true
                             } label: {
@@ -176,79 +186,33 @@ public struct ScheduleGridView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.primary)
-                                .frame(width: 34, height: 34)
-                                .background(.ultraThinMaterial, in: Circle())
-                                .overlay(
-                                    Circle()
-                                        .stroke(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.40),
-                                                    Color.white.opacity(0.12)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 0.8
-                                        )
-                                )
-                                .shadow(color: Color.black.opacity(0.06), radius: 3, x: 0, y: 1.5)
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
                         }
-                    }
+                }
 
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack(spacing: 10) {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 12) {
+                        if selectedTab == .schedule {
                             Button {
                                 showingImportSheet = true
                             } label: {
                                 Image(systemName: "arrow.down.doc")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 34, height: 34)
-                                    .background(.ultraThinMaterial, in: Circle())
-                                    .overlay(
-                                        Circle()
-                                            .stroke(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.40),
-                                                        Color.white.opacity(0.12)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                ),
-                                                lineWidth: 0.8
-                                            )
-                                    )
-                                    .shadow(color: Color.black.opacity(0.06), radius: 3, x: 0, y: 1.5)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
                             .accessibilityLabel("匯入課表")
 
                             Button {
                                 courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 34, height: 34)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [Color.blue, Color(red: 0.05, green: 0.45, blue: 0.95)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        in: Circle()
-                                    )
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
-                                    )
-                                    .shadow(color: Color.blue.opacity(0.38), radius: 5, x: 0, y: 2)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
                             .accessibilityLabel("新增課程")
                         }
                     }
@@ -315,9 +279,9 @@ public struct ScheduleGridView: View {
                     .padding(.bottom, 4)
             }
 
-            // 2. 星期標頭行 (固定頂部，Apple 液態毛玻璃材質)
+            // 2. 星期標頭行 (固定頂部)
             weekdayHeaderRow
-                .background(.ultraThinMaterial)
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
 
             Divider()
 
@@ -398,9 +362,9 @@ public struct ScheduleGridView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -457,9 +421,9 @@ public struct ScheduleGridView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -546,7 +510,7 @@ public struct ScheduleGridView: View {
                     }
                 }
                 .frame(width: timeColumnWidth, height: max(cellHeight, 15.0))
-                .background(.ultraThinMaterial)
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .overlay(
                     Rectangle()
                         .frame(height: 0.5)
@@ -841,22 +805,18 @@ struct CourseBlockCard: View {
         ZStack(alignment: .top) {
             // 卡片本體 (點擊選中/編輯，按住直接上下拖曳平移整門課程)
             ZStack {
-                // 1. Apple 液態毛玻璃材質基底 (超透光感，即時模糊背後格線，呈現頂級玻璃質感)
+                // 1. 防穿透實體基底（杜絕系統深色遮罩穿透導致卡片變黑消失）
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
 
-                // 2. 半透明次級分組背景防透層 (在深色/淺色模式下維持晶瑩水感)
-                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.35))
-
-                // 3. Apple 柔和雙色微光漸變（高透晶亮光感）
+                // 2. Apple 柔和雙色微光漸變（高透晶亮光感，告別死板灰色）
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                course.color.opacity(0.26),
-                                course.color.opacity(0.14),
-                                course.color.opacity(0.06)
+                                course.color.opacity(0.24),
+                                course.color.opacity(0.13),
+                                course.color.opacity(0.05)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing

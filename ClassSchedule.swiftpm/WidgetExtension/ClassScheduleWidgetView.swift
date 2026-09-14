@@ -193,7 +193,8 @@ public struct ClassScheduleWidgetEntryView: View {
                             .padding(.top, 2)
                     } else if let next = entry.nextCourse {
                         Text("\(next.minutesUntil)")
-                            .font(.system(size: 38, weight: .black, design: .rounded))
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                                .minimumScaleFactor(0.8)
                             .foregroundStyle(.orange)
                         Text("分鐘後上課")
                             .font(.system(size: 10, weight: .bold))
@@ -264,16 +265,19 @@ public struct ClassScheduleWidgetEntryView: View {
                                 .foregroundStyle(.secondary)
 
                             Text(course.classroom.isEmpty ? "未指定" : course.classroom)
-                                .font(.system(size: settings.highlightClassroom ? 30 : 22, weight: .black, design: .rounded))
+                                .font(.system(size: settings.highlightClassroom ? 26 : 20, weight: .black, design: .rounded))
                                 .foregroundStyle(course.color)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.65)
                         }
 
                         if settings.showPeriodTime {
                             Text(course.timeRangeString)
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -323,13 +327,13 @@ public struct ClassScheduleWidgetEntryView: View {
                     } else {
                         VStack(spacing: 5) {
                             ForEach(entry.todayCourses.prefix(2)) { c in
-                                HStack(spacing: 6) {
+                                HStack(spacing: 4) {
                                     if settings.showPeriodTime {
                                         Text(c.timeRangeString)
-                                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                                             .monospacedDigit()
-                                            .frame(width: 80, alignment: .leading)
                                             .foregroundStyle(.primary)
+                                            .lineLimit(1)
                                     }
 
                                     Text(c.name)
@@ -337,21 +341,23 @@ public struct ClassScheduleWidgetEntryView: View {
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
 
-                                    Spacer()
+                                    Spacer(minLength: 4)
 
                                     if settings.showTeacher && !c.teacher.isEmpty {
                                         Text(c.teacher)
-                                            .font(.system(size: 10))
+                                            .font(.system(size: 9.5))
                                             .foregroundStyle(.secondary)
+                                            .lineLimit(1)
                                     }
 
                                     if settings.showClassroom && !c.classroom.isEmpty {
                                         Text(c.classroom)
-                                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
+                                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1.5)
                                             .background(c.color.opacity(0.15), in: Capsule())
                                             .foregroundStyle(c.color)
+                                            .lineLimit(1)
                                     }
                                 }
                             }
@@ -376,7 +382,8 @@ public struct ClassScheduleWidgetEntryView: View {
                                 .foregroundStyle(.green)
                         } else if let next = entry.nextCourse {
                             Text("\(next.minutesUntil)")
-                                .font(.system(size: 38, weight: .black, design: .rounded))
+                                .font(.system(size: 34, weight: .black, design: .rounded))
+                                .minimumScaleFactor(0.8)
                                 .foregroundStyle(.orange)
                             Text("分鐘後開始")
                                 .font(.system(size: 10.5, weight: .bold))
@@ -394,7 +401,7 @@ public struct ClassScheduleWidgetEntryView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(width: 100, alignment: .leading)
+                    .frame(minWidth: 80, maxWidth: 95, alignment: .leading)
 
                     Divider()
 
@@ -772,46 +779,30 @@ public struct ClassScheduleWidgetEntryView: View {
     private func widgetBackground(for course: Course?, theme: WidgetTheme) -> some View {
         switch theme {
         case .systemBlur:
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.35),
-                        Color.white.opacity(0.08),
-                        Color.clear
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            Color(uiColor: .systemBackground)
         case .courseColor:
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(
-                    colors: [
-                        (course?.color ?? .blue).opacity(0.35),
-                        (course?.color ?? .blue).opacity(0.12),
-                        Color.clear
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            LinearGradient(
+                colors: [
+                    (course?.color ?? .blue).opacity(0.22),
+                    (course?.color ?? .blue).opacity(0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .background(Color(uiColor: .systemBackground))
         case .darkOLED:
             Color.black
         case .softGradient:
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(
-                    colors: [
-                        Color.blue.opacity(0.20),
-                        Color.purple.opacity(0.14),
-                        Color.pink.opacity(0.08)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            LinearGradient(
+                colors: [
+                    Color.blue.opacity(0.15),
+                    Color.purple.opacity(0.12),
+                    Color.pink.opacity(0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .background(Color(uiColor: .systemBackground))
         }
     }
 }

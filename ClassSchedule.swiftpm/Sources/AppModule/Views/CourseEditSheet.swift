@@ -55,6 +55,30 @@ public struct CourseEditSheet: View {
         self.courseToEdit = courseToEdit
         self.initialDay = initialDay
         self.initialPeriodId = initialPeriodId
+
+        if let course = courseToEdit {
+            _name = State(initialValue: course.name)
+            _teacher = State(initialValue: course.teacher)
+            _classroom = State(initialValue: course.classroom)
+            _credits = State(initialValue: course.credits)
+            _dayOfWeek = State(initialValue: course.dayOfWeek)
+            _startPeriodId = State(initialValue: course.startPeriodId)
+            _endPeriodId = State(initialValue: course.endPeriodId)
+            _selectedColor = State(initialValue: course.colorName)
+            _notes = State(initialValue: course.notes)
+        } else {
+            let defDay = initialDay ?? 1
+            let defPeriod = initialPeriodId ?? (store.settings.activePeriods.first?.id ?? "1")
+            _name = State(initialValue: "")
+            _teacher = State(initialValue: "")
+            _classroom = State(initialValue: "")
+            _credits = State(initialValue: "3學分")
+            _dayOfWeek = State(initialValue: defDay)
+            _startPeriodId = State(initialValue: defPeriod)
+            _endPeriodId = State(initialValue: defPeriod)
+            _selectedColor = State(initialValue: "indigo")
+            _notes = State(initialValue: "")
+        }
     }
 
     public var body: some View {
@@ -216,31 +240,6 @@ public struct CourseEditSheet: View {
                 Button("好", role: .cancel) {}
             } message: {
                 Text("所選的時間與節次與現有其他課程衝突，請調整後再儲存。")
-            }
-            .onAppear {
-                initializeData()
-            }
-        }
-    }
-
-    private func initializeData() {
-        if let course = courseToEdit {
-            self.name = course.name
-            self.teacher = course.teacher
-            self.classroom = course.classroom
-            self.credits = course.credits
-            self.dayOfWeek = course.dayOfWeek
-            self.startPeriodId = course.startPeriodId
-            self.endPeriodId = course.endPeriodId
-            self.selectedColor = course.colorName
-            self.notes = course.notes
-        } else {
-            if let day = initialDay {
-                self.dayOfWeek = day
-            }
-            if let periodId = initialPeriodId {
-                self.startPeriodId = periodId
-                self.endPeriodId = periodId
             }
         }
     }
