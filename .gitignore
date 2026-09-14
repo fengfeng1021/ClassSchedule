@@ -1,0 +1,20 @@
+# Xcode / Swift Playgrounds
+.build/
+.swiftpm/
+xcuserdata/
+*.xcworkspace/
+*.xcodeproj/
+DerivedData/
+
+# Skills & Temp
+.agent/
+apple-ui-skills-*/
+
+# OS / Editor
+.DS_Store
+*.swp
+*~
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
