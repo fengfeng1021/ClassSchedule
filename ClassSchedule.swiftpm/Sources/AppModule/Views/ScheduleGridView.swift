@@ -271,7 +271,7 @@ public struct ScheduleGridView: View {
                     .font(.system(size: 15, weight: .semibold))
             }
             .buttonStyle(.bordered)
-            .buttonBorderShape(.circle)
+            .appleCircularButtonShape()
             .tint(.primary)
             .accessibilityLabel("選單與設定")
         }
@@ -287,7 +287,7 @@ public struct ScheduleGridView: View {
                             .font(.system(size: 14.5, weight: .semibold))
                     }
                     .buttonStyle(.bordered)
-                    .buttonBorderShape(.circle)
+                    .appleCircularButtonShape()
                     .tint(.primary)
                     .accessibilityLabel("匯入課表")
 
@@ -298,7 +298,7 @@ public struct ScheduleGridView: View {
                             .font(.system(size: 15, weight: .bold))
                     }
                     .buttonStyle(.borderedProminent)
-                    .buttonBorderShape(.circle)
+                    .appleCircularButtonShape()
                     .tint(.blue)
                     .accessibilityLabel("新增課程")
                 }
@@ -1103,6 +1103,20 @@ public struct AppleLiquidCapsuleTabPicker: View {
         )
     }
 }
+
+// MARK: - 工具列按鈕 Apple 原生圓盤相容修飾器 (iOS 17+ 原生 Circle, iOS 16 Capsule)
+
+extension View {
+    @ViewBuilder
+    fileprivate func appleCircularButtonShape() -> some View {
+        if #available(iOS 17.0, *) {
+            self.buttonBorderShape(.circle)
+        } else {
+            self.buttonBorderShape(.capsule)
+        }
+    }
+}
+
 
 
 
