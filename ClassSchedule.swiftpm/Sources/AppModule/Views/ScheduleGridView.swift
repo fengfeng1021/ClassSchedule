@@ -65,23 +65,24 @@ public struct ScheduleGridView: View {
     }
 
     public var body: some View {
-        let isPad = UIDevice.current.userInterfaceIdiom == .pad
-
         NavigationStack {
             VStack(spacing: 0) {
-                // iPhone 專屬子分頁列（徹底杜絕導航列空間擠壓碰撞）
-                if !isPad {
+                // MARK: 頂部主分頁切換列 (獨立成行，iPad/iPhone/分屏全尺寸 100% 絕無互相遮擋)
+                HStack {
+                    Spacer(minLength: 0)
                     Picker("主要頁面分頁", selection: $selectedTab) {
                         ForEach(AppMainTab.allCases) { tab in
                             Text(tab.rawValue).tag(tab)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 6)
-                    .background(Color(uiColor: .systemGroupedBackground))
+                    .frame(maxWidth: 380)
+                    Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 6)
+                .background(Color(uiColor: .systemGroupedBackground))
 
                 ZStack {
                     scheduleMatrixContentView
@@ -96,22 +97,9 @@ public struct ScheduleGridView: View {
             }
             .animation(.easeInOut(duration: 0.22), value: selectedTab)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle(isPad ? "" : (selectedTab == .schedule ? "我的課表" : "小工具設定"))
+            .navigationTitle(selectedTab == .schedule ? "我的課表" : "小工具設定")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // iPad 專屬置中主分頁列 (iPad 螢幕空間充裕無擠壓)
-                if isPad {
-                    ToolbarItem(placement: .principal) {
-                        Picker("主要頁面分頁", selection: $selectedTab) {
-                            ForEach(AppMainTab.allCases) { tab in
-                                Text(tab.rawValue).tag(tab)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 220)
-                    }
-                }
-
                 // 課表頁面專屬功能按鈕（切換至小工具設定時徹底卸載，不佔位）
                 if selectedTab == .schedule {
                     ToolbarItem(placement: .navigationBarLeading) {
@@ -144,24 +132,20 @@ public struct ScheduleGridView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                                 .font(.system(size: 18, weight: .medium))
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
                         }
                     }
 
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack(spacing: isPad ? 14 : 10) {
+                        HStack(spacing: 12) {
                             Button {
                                 showingImportSheet = true
                             } label: {
-                                if isPad {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "arrow.down.doc")
-                                        Text("匯入課表")
-                                            .font(.subheadline.weight(.medium))
-                                    }
-                                } else {
-                                    Image(systemName: "arrow.down.doc")
-                                        .font(.system(size: 16, weight: .medium))
-                                }
+                                Image(systemName: "arrow.down.doc")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
                             .accessibilityLabel("匯入課表")
 
@@ -170,6 +154,8 @@ public struct ScheduleGridView: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 16, weight: .bold))
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
                             .accessibilityLabel("新增課程")
                         }
