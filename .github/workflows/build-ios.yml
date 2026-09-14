@@ -19,14 +19,22 @@ jobs:
 
       - name: Verify and Select Xcode 16 (iOS 18 SDK)
         run: |
-          for xcode in /Applications/Xcode_16*.app; do
-            if [ -d "$xcode/Contents/Developer" ]; then
-              sudo xcode-select -s "$xcode/Contents/Developer"
-              break
-            fi
-          done
+          ls -ld /Applications/Xcode*.app || true
+          if [ -d "/Applications/Xcode_16.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.3.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.2.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+          elif [ -d "/Applications/Xcode.app" ]; then
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          fi
+          sudo xcodebuild -runFirstLaunch || true
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+          xcrun simctl list runtimes || true
 
       - name: Build with xcodebuild
         run: |
