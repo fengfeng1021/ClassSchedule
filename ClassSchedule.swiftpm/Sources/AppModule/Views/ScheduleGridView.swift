@@ -246,26 +246,26 @@ public struct ScheduleGridView: View {
                     .background(.green.opacity(0.12), in: Capsule())
 
                     Text("當前教室:")
-                        .font(.caption2)
+                        .font(.caption2.weight(.bold))
                         .foregroundStyle(.secondary)
 
                     Text(current.classroom)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .black, design: .rounded))
                         .foregroundStyle(.primary)
 
                     Text("(\(current.name))")
-                        .font(.caption2)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.caption2)
+                        .font(.caption2.weight(.bold))
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 5)
+                .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(uiColor: .secondarySystemGroupedBackground))
@@ -273,7 +273,7 @@ public struct ScheduleGridView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(current.color.opacity(0.3), lineWidth: 1)
+                        .stroke(current.color.opacity(0.35), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -285,35 +285,35 @@ public struct ScheduleGridView: View {
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: "figure.walk")
-                            .font(.system(size: 9))
+                            .font(.system(size: 10, weight: .bold))
                         Text(next.minutesUntil <= 30 ? "\(next.minutesUntil)分後" : "下一節")
-                            .font(.caption2.weight(.bold))
+                            .font(.caption2.weight(.heavy))
                     }
                     .foregroundStyle(next.course.color)
                     .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(next.course.color.opacity(0.12), in: Capsule())
+                    .padding(.vertical, 2.5)
+                    .background(next.course.color.opacity(0.14), in: Capsule())
 
                     Text("前往教室:")
-                        .font(.caption2)
+                        .font(.caption2.weight(.bold))
                         .foregroundStyle(.secondary)
 
                     Text(next.course.classroom)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .black, design: .rounded))
                         .foregroundStyle(.primary)
 
                     Text("(\(next.course.startTime.formatted))")
-                        .font(.caption2)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.caption2)
+                        .font(.caption2.weight(.bold))
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 5)
+                .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(uiColor: .secondarySystemGroupedBackground))
@@ -325,15 +325,15 @@ public struct ScheduleGridView: View {
         } else {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.caption2)
+                    .font(.caption2.weight(.bold))
                     .foregroundStyle(.teal)
                 Text(store.todayCourses(at: currentDate).isEmpty ? "今日無排課" : "今日課程已全部結束")
-                    .font(.caption2)
+                    .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 4)
+            .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.6))
@@ -348,27 +348,28 @@ public struct ScheduleGridView: View {
             // 左上角節次標題
             VStack(spacing: 1) {
                 Text("節次")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.secondary)
             }
-            .frame(width: timeColumnWidth, height: 32)
+            .frame(width: timeColumnWidth, height: 34)
             .background(Color(uiColor: .tertiarySystemGroupedBackground).opacity(0.4))
 
             // 各星期標頭
             ForEach(visibleDays, id: \.self) { day in
                 let isToday = (day == currentWeekday)
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Text(Course.dayName(for: day))
-                        .font(.system(size: 12, weight: isToday ? .bold : .medium))
+                        .font(.system(size: 13, weight: isToday ? .heavy : .bold, design: .rounded))
                         .foregroundStyle(isToday ? .blue : .primary)
 
                     if isToday {
                         Circle()
                             .fill(.blue)
-                            .frame(width: 4, height: 4)
+                            .frame(width: 5, height: 5)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: 32)
-                .background(isToday ? Color.blue.opacity(0.08) : Color.clear)
+                .frame(maxWidth: .infinity, maxHeight: 34)
+                .background(isToday ? Color.blue.opacity(0.09) : Color.clear)
                 .overlay(
                     Rectangle()
                         .frame(width: 0.5)
@@ -382,18 +383,22 @@ public struct ScheduleGridView: View {
     // MARK: - 3. 左側節次與時間軸列 (等比填滿高度)
 
     private func periodsColumnView(cellHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
+        let periodNumSize: CGFloat = min(max(cellHeight * 0.28, 12.0), 16.0)
+        let timeFontSize: CGFloat = min(max(cellHeight * 0.17, 7.5), 10.0)
+
+        return VStack(spacing: 0) {
             ForEach(activePeriods) { period in
-                VStack(spacing: 1) {
+                VStack(spacing: 1.5) {
                     Text(period.shortName)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(size: periodNumSize, weight: .heavy, design: .rounded))
                         .foregroundStyle(.primary)
 
                     VStack(spacing: 0) {
                         Text(period.startTime.formatted)
                         Text(period.endTime.formatted)
                     }
-                    .font(.system(size: 8, design: .monospaced))
+                    .font(.system(size: timeFontSize, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundStyle(.secondary.opacity(0.85))
                 }
                 .frame(width: timeColumnWidth, height: cellHeight)
@@ -566,7 +571,7 @@ public struct ScheduleGridView: View {
     }
 }
 
-// MARK: - 現代高校質感課程卡片（大字居中 + 獨立教室膠囊 + 無抖動手柄）
+// MARK: - 現代高校質感課程卡片（自適應大字居中 + 極粗圓潤字重 + 醒目獨立教室膠囊 + 無抖動手柄）
 
 struct CourseBlockCard: View {
     let course: Course
@@ -580,17 +585,54 @@ struct CourseBlockCard: View {
     let onBottomDragChanged: (CGFloat) -> Void
     let onBottomDragEnded: (CGFloat) -> Void
 
+    // MARK: - 自適應比例計算 (依寬高動態放大，在 iPad 磅礡大氣，在 iPhone 精緻清晰)
+    private var widthScale: CGFloat {
+        min(max(width / 60.0, 0.88), 1.65)
+    }
+
+    private var heightScale: CGFloat {
+        min(max(height / 55.0, 0.88), 1.5)
+    }
+
+    private var baseScale: CGFloat {
+        min(widthScale, heightScale)
+    }
+
+    // 課程名稱字級：自適應 11.5pt ~ 18pt，超重圓潤 (Heavy / Rounded)
+    private var titleFontSize: CGFloat {
+        let base: CGFloat = spanCount > 1 ? 12.5 : 11.5
+        return min(max(base * widthScale, 11.0), 18.0)
+    }
+
+    // 教室標籤字級：自適應 10.5pt ~ 15.5pt，極粗圓潤 (Black / Rounded)
+    private var classroomFontSize: CGFloat {
+        min(max(10.5 * widthScale, 10.0), 15.5)
+    }
+
+    // 授課教師與學分微標籤：自適應 8.5pt ~ 12pt，粗體圓潤 (Bold / Rounded)
+    private var metaFontSize: CGFloat {
+        min(max(8.5 * widthScale, 8.0), 12.0)
+    }
+
+    private var cardCornerRadius: CGFloat {
+        min(max(8.5 * baseScale, 7.5), 13.0)
+    }
+
+    private var elementSpacing: CGFloat {
+        min(max(3.0 * heightScale, 2.0), 6.5)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             // 卡片本體按鈕
             Button(action: onTap) {
                 ZStack {
                     // 柔和雙色微粉彩漸層背景（告別 macOS 冷淡灰暗）
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    course.color.opacity(0.22),
+                                    course.color.opacity(0.24),
                                     course.color.opacity(0.13)
                                 ],
                                 startPoint: .topLeading,
@@ -598,58 +640,62 @@ struct CourseBlockCard: View {
                             )
                         )
 
-                    // 核心排版：完全水平垂直居中對稱，告別全部堆在左上角
-                    VStack(spacing: height > 60 ? 4 : 2) {
+                    // 核心排版：完全水平垂直居中對稱，自適應字級與大字重
+                    VStack(spacing: elementSpacing) {
                         Spacer(minLength: 0)
 
-                        // 1. 課程名稱 (居中加粗清晰易讀)
+                        // 1. 課程名稱 (自適應大字、超重圓潤、多行優化)
                         Text(course.name)
-                            .font(.system(size: spanCount > 1 ? 11.5 : 10.5, weight: .bold, design: .rounded))
+                            .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
                             .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
                             .lineLimit(height > 55 ? 2 : 1)
-                            .padding(.horizontal, 3)
+                            .lineSpacing(1.5)
+                            .minimumScaleFactor(0.72)
+                            .padding(.horizontal, max(3.0 * widthScale, 2.0))
 
-                        // 2. 核心醒目獨立教室膠囊標籤
+                        // 2. 核心醒目獨立教室膠囊標籤 (極黑字重、自適應內距)
                         if !course.classroom.isEmpty {
-                            HStack(spacing: 2.5) {
+                            HStack(spacing: 3) {
                                 Image(systemName: "location.fill")
-                                    .font(.system(size: 7.5))
+                                    .font(.system(size: classroomFontSize * 0.72, weight: .bold))
                                 Text(course.classroom)
-                                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                    .font(.system(size: classroomFontSize, weight: .black, design: .rounded))
                             }
                             .foregroundStyle(course.color)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
+                            .padding(.horizontal, max(6.0 * widthScale, 4.5))
+                            .padding(.vertical, max(2.5 * heightScale, 1.8))
                             .background(
                                 Capsule()
-                                    .fill(course.color.opacity(0.22))
+                                    .fill(course.color.opacity(0.24))
                             )
                             .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         }
 
                         // 3. 授課教師與學分微標籤 (卡片高度充裕時居中呈現)
-                        if height >= 65 && (!course.teacher.isEmpty || !course.credits.isEmpty) {
+                        if height >= 62 && (!course.teacher.isEmpty || !course.credits.isEmpty) {
                             HStack(spacing: 3) {
                                 if !course.teacher.isEmpty {
                                     Text(course.teacher)
-                                        .font(.system(size: 8))
+                                        .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }
                                 if !course.teacher.isEmpty && !course.credits.isEmpty {
                                     Text("•")
-                                        .font(.system(size: 7, weight: .bold))
+                                        .font(.system(size: metaFontSize * 0.9, weight: .black, design: .rounded))
                                         .foregroundStyle(.tertiary)
                                 }
                                 if !course.credits.isEmpty {
                                     Text(course.credits)
-                                        .font(.system(size: 8))
-                                        .foregroundStyle(.secondary.opacity(0.85))
+                                        .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.secondary.opacity(0.88))
                                         .lineLimit(1)
                                 }
                             }
                             .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         }
 
                         Spacer(minLength: 0)
@@ -658,15 +704,15 @@ struct CourseBlockCard: View {
                 }
                 .frame(width: width, height: height)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                         .stroke(
-                            isSelected ? course.color : course.color.opacity(0.35),
-                            lineWidth: isSelected ? 2.0 : 0.8
+                            isSelected ? course.color : course.color.opacity(0.38),
+                            lineWidth: isSelected ? 2.5 : 1.0
                         )
                 )
                 .shadow(
-                    color: isSelected ? course.color.opacity(0.25) : Color.clear,
-                    radius: 5,
+                    color: isSelected ? course.color.opacity(0.28) : Color.clear,
+                    radius: 6,
                     x: 0,
                     y: 2
                 )
@@ -682,11 +728,11 @@ struct CourseBlockCard: View {
                         Spacer()
                         Capsule()
                             .fill(course.color)
-                            .frame(width: 22, height: 4)
-                            .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                            .frame(width: max(22 * widthScale, 20), height: 4.5)
+                            .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
                         Spacer()
                     }
-                    .frame(height: 16)
+                    .frame(height: 18)
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 1, coordinateSpace: .named("ScheduleGridSpace"))
@@ -705,11 +751,11 @@ struct CourseBlockCard: View {
                         Spacer()
                         Capsule()
                             .fill(course.color)
-                            .frame(width: 22, height: 4)
-                            .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                            .frame(width: max(22 * widthScale, 20), height: 4.5)
+                            .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
                         Spacer()
                     }
-                    .frame(height: 16)
+                    .frame(height: 18)
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 1, coordinateSpace: .named("ScheduleGridSpace"))
