@@ -9,7 +9,6 @@ public final class CourseStore: ObservableObject {
 
     private let coursesFilename = "courses.json"
     private let settingsFilename = "settings.json"
-    private let appGroupSuite = "group.com.fengfeng.classschedule"
 
     public init() {
         loadSettings()
@@ -167,12 +166,9 @@ public final class CourseStore: ObservableObject {
         save()
     }
 
-    // MARK: - 資料持久化 (相容 App Group 共享)
+    // MARK: - 資料持久化 (本機極速讀寫，杜絕沙盒 IPC 啟動阻塞)
 
     private func storageURL(for filename: String) -> URL {
-        if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
-            return containerURL.appendingPathComponent(filename)
-        }
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return documents.appendingPathComponent(filename)
     }
@@ -182,9 +178,6 @@ public final class CourseStore: ObservableObject {
             let data = try JSONEncoder().encode(courses)
             let primaryURL = storageURL(for: coursesFilename)
             try data.write(to: primaryURL, options: [.atomicWrite])
-
-            let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(coursesFilename)
-            try? data.write(to: backupURL, options: [.atomicWrite])
         } catch {
             print("[CourseStore] 儲存課程資料失敗: \(error)")
         }
@@ -197,9 +190,6 @@ public final class CourseStore: ObservableObject {
             let data = try JSONEncoder().encode(settings)
             let primaryURL = storageURL(for: settingsFilename)
             try data.write(to: primaryURL, options: [.atomicWrite])
-
-            let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(settingsFilename)
-            try? data.write(to: backupURL, options: [.atomicWrite])
         } catch {
             print("[CourseStore] 儲存設定失敗: \(error)")
         }
@@ -210,26 +200,12 @@ public final class CourseStore: ObservableObject {
         if let data = try? Data(contentsOf: primaryURL),
            let decoded = try? JSONDecoder().decode([Course].self, from: data) {
             self.courses = decoded
-            return
-        }
-
-        let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(coursesFilename)
-        if let data = try? Data(contentsOf: backupURL),
-           let decoded = try? JSONDecoder().decode([Course].self, from: data) {
-            self.courses = decoded
         }
     }
 
     private func loadSettings() {
         let primaryURL = storageURL(for: settingsFilename)
         if let data = try? Data(contentsOf: primaryURL),
-           let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
-            self.settings = decoded
-            return
-        }
-
-        let backupURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(settingsFilename)
-        if let data = try? Data(contentsOf: backupURL),
            let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
             self.settings = decoded
         }

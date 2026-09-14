@@ -159,12 +159,18 @@ public struct WidgetSettingsView: View {
         if let course = targetCourse {
             VStack(alignment: .leading, spacing: 6) {
                 // 狀態標籤
+                let countdownText: String = {
+                    if isCurrent { return "上課中" }
+                    if let m = minutesUntil { return "\(m)分後" }
+                    return "即將開始"
+                }()
+
                 HStack {
                     HStack(spacing: 3) {
                         Circle()
                             .fill(isCurrent ? Color.green : course.color)
                             .frame(width: 6, height: 6)
-                        Text(isCurrent ? "上課中" : (minutesUntil != nil ? "\(minutesUntil!)分後" : "即將開始"))
+                        Text(countdownText)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(isCurrent ? Color.green : course.color)
                     }

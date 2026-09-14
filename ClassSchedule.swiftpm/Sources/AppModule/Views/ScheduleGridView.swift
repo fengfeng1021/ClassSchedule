@@ -73,9 +73,10 @@ public struct ScheduleGridView: View {
                     .opacity(selectedTab == .schedule ? 1 : 0)
                     .allowsHitTesting(selectedTab == .schedule)
 
-                WidgetSettingsView(store: store)
-                    .opacity(selectedTab == .widgetSettings ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .widgetSettings)
+                if selectedTab == .widgetSettings {
+                    WidgetSettingsView(store: store)
+                        .transition(.opacity)
+                }
             }
             .animation(.easeInOut(duration: 0.22), value: selectedTab)
             .background(Color(uiColor: .systemGroupedBackground))
@@ -213,27 +214,33 @@ public struct ScheduleGridView: View {
 
             Divider()
 
-            // 3. 全螢幕自適應免滑動課表矩陣 (Zero ScrollView)
+            // 3. 全螢幕自適應免滑動課表矩陣 (Zero ScrollView，含尺寸保護防凍結)
             GeometryReader { geometry in
                 let availableWidth = geometry.size.width
                 let availableHeight = geometry.size.height
-                let columnWidth = (availableWidth - timeColumnWidth) / CGFloat(visibleDays.count)
-                let periodCount = max(activePeriods.count, 1)
-                let cellHeight = availableHeight / CGFloat(periodCount)
 
-                HStack(alignment: .top, spacing: 0) {
-                    // 左側：節次與時間軸
-                    periodsColumnView(cellHeight: cellHeight)
+                if availableWidth > (timeColumnWidth + 50.0) && availableHeight > 50.0 {
+                    let daysCount = max(CGFloat(visibleDays.count), 1.0)
+                    let columnWidth = max((availableWidth - timeColumnWidth) / daysCount, 20.0)
+                    let periodCount = max(CGFloat(activePeriods.count), 1.0)
+                    let cellHeight = max(availableHeight / periodCount, 15.0)
 
-                    // 右側：各星期課程網格
                     HStack(alignment: .top, spacing: 0) {
-                        ForEach(visibleDays, id: \.self) { day in
-                            dayColumnView(day: day, columnWidth: columnWidth, cellHeight: cellHeight)
+                        // 左側：節次與時間軸
+                        periodsColumnView(cellHeight: cellHeight)
+
+                        // 右側：各星期課程網格
+                        HStack(alignment: .top, spacing: 0) {
+                            ForEach(visibleDays, id: \.self) { day in
+                                dayColumnView(day: day, columnWidth: columnWidth, cellHeight: cellHeight)
+                            }
                         }
                     }
+                    .frame(width: availableWidth, height: availableHeight)
+                    .coordinateSpace(name: "ScheduleGridSpace")
+                } else {
+                    Color.clear
                 }
-                .frame(width: availableWidth, height: availableHeight)
-                .coordinateSpace(name: "ScheduleGridSpace")
             }
         }
     }
@@ -422,7 +429,7 @@ public struct ScheduleGridView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: timeColumnWidth, height: cellHeight)
+                .frame(width: timeColumnWidth, height: max(cellHeight, 15.0))
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .overlay(
                     Rectangle()
@@ -452,7 +459,7 @@ public struct ScheduleGridView: View {
                     } label: {
                         Rectangle()
                             .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.2))
-                            .frame(width: columnWidth, height: cellHeight)
+                            .frame(width: max(columnWidth, 20.0), height: max(cellHeight, 15.0))
                             .overlay(
                                 Rectangle()
                                     .frame(height: 0.5)
@@ -480,20 +487,20 @@ public struct ScheduleGridView: View {
                     let spanCount = maxIndex - minIndex + 1
 
                     let topY = CGFloat(minIndex) * cellHeight + 1.5
-                    let baseHeight = CGFloat(spanCount) * cellHeight - 3.0
+                    let baseHeight = max(CGFloat(spanCount) * cellHeight - 3.0, 15.0)
 
                     // 拖曳狀態計算：支援整卡平移與頂底部縮放，徹底杜絕中心點位移抖動
                     let isDraggingBottom = (draggingBottomCourseId == course.id)
                     let isDraggingTop = (draggingTopCourseId == course.id)
                     let isDraggingWhole = (draggingWholeCourseId == course.id)
 
-                    let actualHeight = max(baseHeight + (isDraggingBottom ? dragBottomOffset : 0) - (isDraggingTop ? dragTopOffset : 0), cellHeight - 3.0)
+                    let actualHeight = max(baseHeight + (isDraggingBottom ? dragBottomOffset : 0) - (isDraggingTop ? dragTopOffset : 0), 15.0)
                     let actualY = topY + (isDraggingWhole ? dragWholeOffset : (isDraggingTop ? dragTopOffset : 0))
 
                     CourseBlockCard(
                         course: course,
                         spanCount: spanCount,
-                        width: columnWidth - 3.0,
+                        width: max(columnWidth - 3.0, 15.0),
                         height: actualHeight,
                         isSelected: selectedCourseId == course.id,
                         isDraggingWhole: isDraggingWhole,
@@ -535,7 +542,7 @@ public struct ScheduleGridView: View {
                 }
             }
         }
-        .frame(width: columnWidth)
+        .frame(width: max(columnWidth, 20.0))
     }
 
     // MARK: - 5. 拖曳步進觸覺、碰撞檢測與吸附邏輯
@@ -657,13 +664,21 @@ struct CourseBlockCard: View {
     let onBottomDragChanged: (CGFloat) -> Void
     let onBottomDragEnded: (CGFloat) -> Void
 
-    // MARK: - 自適應比例計算 (依寬高動態縮放)
+    // MARK: - 自適應比例計算 (依寬高動態縮放，保證非負非零)
+    private var safeWidth: CGFloat {
+        max(width, 15.0)
+    }
+
+    private var safeHeight: CGFloat {
+        max(height, 15.0)
+    }
+
     private var widthScale: CGFloat {
-        min(max(width / 60.0, 0.88), 1.65)
+        min(max(safeWidth / 60.0, 0.88), 1.65)
     }
 
     private var heightScale: CGFloat {
-        min(max(height / 55.0, 0.88), 1.5)
+        min(max(safeHeight / 55.0, 0.88), 1.5)
     }
 
     private var baseScale: CGFloat {
@@ -696,7 +711,7 @@ struct CourseBlockCard: View {
 
     // 是否為緊湊模式（單節課或高度較小）
     private var isCompact: Bool {
-        spanCount == 1 || height < 58
+        spanCount == 1 || safeHeight < 58
     }
 
     var body: some View {
@@ -728,7 +743,7 @@ struct CourseBlockCard: View {
                     standardContentLayout
                 }
             }
-            .frame(width: width, height: height)
+            .frame(width: safeWidth, height: safeHeight)
             // 4. Apple 微光邊框（模擬玻璃折射 Specular Highlight + 主題色輪廓）
             .overlay(
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
