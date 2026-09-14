@@ -24,6 +24,8 @@ public struct ScheduleGridView: View {
     @State private var courseToAddDayAndPeriod: (day: Int, periodId: String)?
     @State private var selectedCourseId: UUID?
 
+    @StateObject private var updateService = AppUpdateService.shared
+
     @State private var showingSettingsSheet = false
     @State private var showingImportSheet = false
     @State private var showingExportSheet = false
@@ -157,6 +159,14 @@ public struct ScheduleGridView: View {
                                 Label("儲存課表圖片", systemImage: "square.and.arrow.down")
                             }
 
+                            Button {
+                                Task {
+                                    await updateService.checkForUpdates(silent: false)
+                                }
+                            } label: {
+                                Label("檢查版本更新", systemImage: "arrow.triangle.2.circlepath")
+                            }
+
                             Divider()
 
                             Button(role: .destructive) {
@@ -267,6 +277,12 @@ public struct ScheduleGridView: View {
             .sheet(isPresented: $showingExportSheet) {
                 CleanScheduleExportSheet(store: store)
             }
+            .sheet(isPresented: $updateService.updateAvailable) {
+                NewVersionAlertSheet(updateService: updateService)
+            }
+            .alert(updateService.manualCheckMessage, isPresented: $updateService.manualCheckFinished) {
+                Button("好", role: .cancel) {}
+            }
             .alert("確定要清空課表？", isPresented: $showingClearAlert) {
                 Button("取消", role: .cancel) {}
                 Button("清空", role: .destructive) {
@@ -280,6 +296,10 @@ public struct ScheduleGridView: View {
                 currentDate = input
             }
             .preferredColorScheme(settings.appearanceMode.colorScheme)
+            .task {
+                // 開啟 App 時在背景自動檢測 GitHub 最新發布版本
+                await updateService.checkForUpdates(silent: true)
+            }
         }
     }
 
