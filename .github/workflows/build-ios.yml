@@ -54,6 +54,9 @@ jobs:
             -O \
             -parse-as-library \
             -emit-executable \
+            -Xlinker -rpath -Xlinker /System/Library/Frameworks \
+            -Xlinker -rpath -Xlinker @executable_path/Frameworks \
+            -Xlinker -rpath -Xlinker @executable_path/../../Frameworks \
             -o "$WIDGET_APPEX_DIR/ClassScheduleWidget" \
             WidgetExtension/*.swift \
             Sources/AppModule/Models/Course.swift \
@@ -67,8 +70,11 @@ jobs:
             -framework UIKit \
             -framework Foundation
 
-          echo "Copying Widget Extension Info.plist..."
+          echo "Copying Widget Extension Info.plist and Assets..."
           cp WidgetExtension/Info.plist "$WIDGET_APPEX_DIR/Info.plist"
+          cp -f "$APP_PATH"/AppIcon* "$WIDGET_APPEX_DIR/" 2>/dev/null || true
+          cp -f "$APP_PATH"/Assets.car "$WIDGET_APPEX_DIR/" 2>/dev/null || true
+          chmod +x "$WIDGET_APPEX_DIR/ClassScheduleWidget"
 
           echo "Ad-hoc signing Widget and App for sideloading tools..."
           codesign -s - --force "$WIDGET_APPEX_DIR" || true

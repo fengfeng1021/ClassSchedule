@@ -5,6 +5,7 @@ public struct WidgetSettingsView: View {
     @ObservedObject var store: CourseStore
     @State private var previewSize: WidgetPreviewSize = .medium
     @State private var mockDate = Date()
+    @State private var showingAddWidgetGuideSheet = false
 
     // 每分鐘輕量更新一次，使進度條真實跳動
     private let minuteTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
@@ -25,19 +26,23 @@ public struct WidgetSettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 10)
 
-                // MARK: 2. 顯示模式切換
+                // MARK: 2. 快捷設定：加入桌面小工具與排查
+                shortcutAddWidgetSection
+                    .padding(.horizontal, 16)
+
+                // MARK: 3. 顯示模式切換
                 displayModeSection
                     .padding(.horizontal, 16)
 
-                // MARK: 3. 外觀主題配色
+                // MARK: 4. 外觀主題配色
                 themeSection
                     .padding(.horizontal, 16)
 
-                // MARK: 4. 顯示項目開關組
+                // MARK: 5. 顯示項目開關組
                 contentOptionsSection
                     .padding(.horizontal, 16)
 
-                // MARK: 5. 桌面小工具安裝指南
+                // MARK: 6. 桌面小工具安裝指南
                 tutorialSection
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
@@ -46,6 +51,9 @@ public struct WidgetSettingsView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .onReceive(minuteTimer) { input in
             mockDate = input
+        }
+        .sheet(isPresented: $showingAddWidgetGuideSheet) {
+            AddWidgetGuideSheet()
         }
     }
 
@@ -1191,13 +1199,92 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 5. 桌面小工具加入指南
+    // MARK: - 快捷設定：加入桌面小工具與排查中心
+
+    private var shortcutAddWidgetSection: some View {
+        Button {
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            showingAddWidgetGuideSheet = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.blue, Color(red: 0.1, green: 0.5, blue: 1.0)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
+                        .shadow(color: Color.blue.opacity(0.28), radius: 5, x: 0, y: 2)
+
+                    Image(systemName: "plus.app.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("快捷設定：加入桌面小工具")
+                            .font(.system(size: 15.5, weight: .bold))
+                            .foregroundStyle(.primary)
+
+                        Text("一鍵前往")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.12), in: Capsule())
+                    }
+
+                    Text("一鍵退回主畫面長按加入、同步時間軸與 SideStore 排查")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - 6. 桌面小工具加入指南
 
     private var tutorialSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("如何將小工具加入桌面？")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(.secondary)
+            HStack {
+                Text("如何將小工具加入桌面？")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    showingAddWidgetGuideSheet = true
+                } label: {
+                    Text("詳細教學與排查 →")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 stepRow(number: "1", title: "長按主畫面空白處", detail: "長按桌面背景直到所有 App 圖示開始晃動。")
