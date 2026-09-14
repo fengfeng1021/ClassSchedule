@@ -19,6 +19,7 @@ public struct CourseEditSheet: View {
     @State private var selectedColor: String = "indigo"
     @State private var notes: String = ""
     @State private var showingDeleteAlert = false
+    @State private var showingOverlapAlert = false
 
     private let availableColors = [
         "indigo", "blue", "teal", "mint", "green", "orange", "purple", "pink", "red"
@@ -210,6 +211,11 @@ public struct CourseEditSheet: View {
             } message: {
                 Text("刪除後將從課表格子中移除該課程及其教室時段。")
             }
+            .alert("上課時段衝突", isPresented: $showingOverlapAlert) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("所選的時間與節次與現有其他課程衝突，請調整後再儲存。")
+            }
             .onAppear {
                 initializeData()
             }
@@ -250,6 +256,18 @@ public struct CourseEditSheet: View {
         let finalEndId = startIndex <= endIndex ? endPeriodId : startPeriodId
         let finalStartTime = startIndex <= endIndex ? startP.startTime : endP.startTime
         let finalEndTime = startIndex <= endIndex ? endP.endTime : startP.endTime
+
+        // 碰撞防護：禁止重疊已存在的其他課程
+        if store.hasPeriodOverlap(
+            dayOfWeek: dayOfWeek,
+            startPeriodId: finalStartId,
+            endPeriodId: finalEndId,
+            excludingCourseId: courseToEdit?.id
+        ) {
+            showingOverlapAlert = true
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
 
         if var course = courseToEdit {
             course.name = name.trimmingCharacters(in: .whitespacesAndNewlines)

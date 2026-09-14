@@ -64,6 +64,54 @@ public final class CourseStore: ObservableObject {
             .sorted { a, b in a.startTime < b.startTime }
     }
 
+    // MARK: - 碰撞防護與時段重疊檢測 (Collision Detection)
+
+    /// 檢測在指定星期幾與起訖節次範圍內，是否與現有其他課程衝突重疊
+    public func hasPeriodOverlap(
+        dayOfWeek: Int,
+        startPeriodId: String,
+        endPeriodId: String,
+        excludingCourseId: UUID? = nil
+    ) -> Bool {
+        guard let reqStartIndex = settings.indexOfPeriod(id: startPeriodId),
+              let reqEndIndex = settings.indexOfPeriod(id: endPeriodId) else {
+            return false
+        }
+        let minReq = min(reqStartIndex, reqEndIndex)
+        let maxReq = max(reqStartIndex, reqEndIndex)
+
+        for course in courses where course.dayOfWeek == dayOfWeek {
+            if let excludingId = excludingCourseId, course.id == excludingId {
+                continue
+            }
+            if let cStart = settings.indexOfPeriod(id: course.startPeriodId),
+               let cEnd = settings.indexOfPeriod(id: course.endPeriodId) {
+                let minC = min(cStart, cEnd)
+                let maxC = max(cStart, cEnd)
+
+                // 兩區間重疊判定: max(start1, start2) <= min(end1, end2)
+                if max(minReq, minC) <= min(maxReq, maxC) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /// 總學分統計（同日同課名且同教師的切開時段自動去重累計）
+    public var totalUniqueCredits: Int {
+        var seenKeys = Set<String>()
+        var total = 0
+        for course in courses {
+            let key = "\(course.dayOfWeek)-\(course.name.trimmingCharacters(in: .whitespaces))-\(course.teacher.trimmingCharacters(in: .whitespaces))"
+            if !seenKeys.contains(key) {
+                seenKeys.insert(key)
+                total += course.creditsInt
+            }
+        }
+        return total
+    }
+
     // MARK: - 手勢拖曳調整節次跨度 (Drag to Resize)
 
     public func updatePeriodRange(courseId: UUID, startPeriodId: String, endPeriodId: String) {

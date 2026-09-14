@@ -64,19 +64,24 @@ public struct ScheduleGridView: View {
     }
 
     public var body: some View {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+
         NavigationStack {
-            Group {
-                if selectedTab == .schedule {
-                    scheduleMatrixContentView
-                } else {
-                    WidgetSettingsView(store: store)
-                }
+            ZStack {
+                scheduleMatrixContentView
+                    .opacity(selectedTab == .schedule ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .schedule)
+
+                WidgetSettingsView(store: store)
+                    .opacity(selectedTab == .widgetSettings ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .widgetSettings)
             }
+            .animation(.easeInOut(duration: 0.22), value: selectedTab)
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // MARK: 頂部置中原生分頁切換 [ 課表 | 小工具設定 ]
+                // MARK: 頂部置中原生分頁切換 [ 課表 | 小工具設定 ] (iPhone 上適配為 160pt 避免兩側擁擠)
                 ToolbarItem(placement: .principal) {
                     Picker("主要頁面分頁", selection: $selectedTab) {
                         ForEach(AppMainTab.allCases) { tab in
@@ -84,69 +89,76 @@ public struct ScheduleGridView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 220)
+                    .frame(width: isPad ? 220 : 160)
                 }
 
                 // MARK: 左上角功能選項選單按鈕 (課表頁面專屬)
                 ToolbarItem(placement: .topBarLeading) {
-                    if selectedTab == .schedule {
-                        Menu {
-                            Button {
-                                showingSettingsSheet = true
-                            } label: {
-                                Label("課表自訂設定", systemImage: "gearshape")
-                            }
-
-                            Button {
-                                toggleEveningPeriods()
-                            } label: {
-                                Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
-                            }
-
-                            Button {
-                                toggleWeekend()
-                            } label: {
-                                Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
-                            }
-
-                            Divider()
-
-                            Button(role: .destructive) {
-                                showingClearAlert = true
-                            } label: {
-                                Label("清空目前課表", systemImage: "trash")
-                            }
+                    Menu {
+                        Button {
+                            showingSettingsSheet = true
                         } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 18, weight: .medium))
+                            Label("課表自訂設定", systemImage: "gearshape")
                         }
+
+                        Button {
+                            toggleEveningPeriods()
+                        } label: {
+                            Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
+                        }
+
+                        Button {
+                            toggleWeekend()
+                        } label: {
+                            Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            showingClearAlert = true
+                        } label: {
+                            Label("清空目前課表", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 18, weight: .medium))
                     }
+                    .opacity(selectedTab == .schedule ? 1 : 0)
+                    .disabled(selectedTab != .schedule)
                 }
 
                 // MARK: 右上角兩個獨立分開的按鈕：「匯入課表」與「新增課程」
                 ToolbarItem(placement: .topBarTrailing) {
-                    if selectedTab == .schedule {
-                        HStack(spacing: 14) {
-                            // 按鈕一：匯入課表
-                            Button {
-                                showingImportSheet = true
-                            } label: {
+                    HStack(spacing: isPad ? 14 : 10) {
+                        // 按鈕一：匯入課表 (iPad 顯示文字圖示，iPhone 顯示精簡純圖示以防止按鈕重疊)
+                        Button {
+                            showingImportSheet = true
+                        } label: {
+                            if isPad {
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.down.doc")
                                     Text("匯入課表")
                                         .font(.subheadline.weight(.medium))
                                 }
-                            }
-
-                            // 按鈕二：新增課程
-                            Button {
-                                courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
-                            } label: {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .bold))
+                            } else {
+                                Image(systemName: "arrow.down.doc")
+                                    .font(.system(size: 16, weight: .medium))
                             }
                         }
+                        .accessibilityLabel("匯入課表")
+
+                        // 按鈕二：新增課程
+                        Button {
+                            courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .accessibilityLabel("新增課程")
                     }
+                    .opacity(selectedTab == .schedule ? 1 : 0)
+                    .disabled(selectedTab != .schedule)
                 }
             }
             .sheet(item: Binding<Course?>(
@@ -519,26 +531,13 @@ public struct ScheduleGridView: View {
                     )
                     .offset(x: 1.5, y: actualY)
                     .zIndex(isDraggingWhole ? 10 : (selectedCourseId == course.id ? 5 : 1))
-                    .contextMenu {
-                        Button {
-                            courseToEdit = course
-                        } label: {
-                            Label("編輯課程", systemImage: "pencil")
-                        }
-
-                        Button(role: .destructive) {
-                            store.delete(course)
-                        } label: {
-                            Label("刪除此課程", systemImage: "trash")
-                        }
-                    }
                 }
             }
         }
         .frame(width: columnWidth)
     }
 
-    // MARK: - 5. 拖曳步進觸覺與吸附邏輯
+    // MARK: - 5. 拖曳步進觸覺、碰撞檢測與吸附邏輯
 
     private func handleHapticStepChange(deltaY: CGFloat, cellHeight: CGFloat) {
         let step = Int(round(deltaY / cellHeight))
@@ -561,6 +560,13 @@ public struct ScheduleGridView: View {
         if newStartIndex < activePeriods.count && newEndIndex < activePeriods.count {
             let newStartPeriodId = activePeriods[newStartIndex].id
             let newEndPeriodId = activePeriods[newEndIndex].id
+
+            // 碰撞防護：禁止重疊已存在的其他課程
+            if store.hasPeriodOverlap(dayOfWeek: course.dayOfWeek, startPeriodId: newStartPeriodId, endPeriodId: newEndPeriodId, excludingCourseId: course.id) {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                return
+            }
+
             store.updatePeriodRange(courseId: course.id, startPeriodId: newStartPeriodId, endPeriodId: newEndPeriodId)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
@@ -576,8 +582,20 @@ public struct ScheduleGridView: View {
 
         if newEndIndex < activePeriods.count {
             let newEndPeriodId = activePeriods[newEndIndex].id
-            store.updatePeriodRange(courseId: course.id, startPeriodId: course.startPeriodId, endPeriodId: newEndPeriodId)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            let startIndex = settings.indexOfPeriod(id: course.startPeriodId) ?? 0
+
+            // 必須保證起訖順序合法且不碰撞
+            if startIndex <= newEndIndex {
+                if store.hasPeriodOverlap(dayOfWeek: course.dayOfWeek, startPeriodId: course.startPeriodId, endPeriodId: newEndPeriodId, excludingCourseId: course.id) {
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                    return
+                }
+
+                store.updatePeriodRange(courseId: course.id, startPeriodId: course.startPeriodId, endPeriodId: newEndPeriodId)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            }
         }
     }
 
@@ -591,8 +609,20 @@ public struct ScheduleGridView: View {
 
         if newStartIndex < activePeriods.count {
             let newStartPeriodId = activePeriods[newStartIndex].id
-            store.updatePeriodRange(courseId: course.id, startPeriodId: newStartPeriodId, endPeriodId: course.endPeriodId)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            let endIndex = settings.indexOfPeriod(id: course.endPeriodId) ?? (activePeriods.count - 1)
+
+            // 必須保證起訖順序合法且不碰撞
+            if newStartIndex <= endIndex {
+                if store.hasPeriodOverlap(dayOfWeek: course.dayOfWeek, startPeriodId: newStartPeriodId, endPeriodId: course.endPeriodId, excludingCourseId: course.id) {
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                    return
+                }
+
+                store.updatePeriodRange(courseId: course.id, startPeriodId: newStartPeriodId, endPeriodId: course.endPeriodId)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            }
         }
     }
 
@@ -609,7 +639,7 @@ public struct ScheduleGridView: View {
     }
 }
 
-// MARK: - 現代高校質感課程卡片（自適應大字居中 + 極粗圓潤字重 + 半透明漸層美學 + 整卡平移與邊框手柄）
+// MARK: - 現代高校高質感課程卡片（Apple原生微光擬物 + 防透實體基底 + 單節課全景雙行佈局 + 整卡平移與邊框手柄）
 
 struct CourseBlockCard: View {
     let course: Course
@@ -626,7 +656,7 @@ struct CourseBlockCard: View {
     let onBottomDragChanged: (CGFloat) -> Void
     let onBottomDragEnded: (CGFloat) -> Void
 
-    // MARK: - 自適應比例計算 (依寬高動態放大，在 iPad 磅礡大氣，在 iPhone 精緻清晰)
+    // MARK: - 自適應比例計算 (依寬高動態縮放)
     private var widthScale: CGFloat {
         min(max(width / 60.0, 0.88), 1.65)
     }
@@ -639,18 +669,18 @@ struct CourseBlockCard: View {
         min(widthScale, heightScale)
     }
 
-    // 課程名稱字級：自適應 11.5pt ~ 18pt，超重圓潤 (Heavy / Rounded)
+    // 課程名稱字級：自適應 11pt ~ 18pt，極粗圓潤
     private var titleFontSize: CGFloat {
-        let base: CGFloat = spanCount > 1 ? 12.5 : 11.5
-        return min(max(base * widthScale, 11.0), 18.0)
+        let base: CGFloat = spanCount > 1 ? 12.5 : 11.2
+        return min(max(base * widthScale, 10.5), 18.0)
     }
 
-    // 教室標籤字級：自適應 10.5pt ~ 15.5pt，極粗圓潤 (Black / Rounded)
+    // 教室標籤字級：自適應 10pt ~ 15.5pt，極黑圓潤
     private var classroomFontSize: CGFloat {
         min(max(10.5 * widthScale, 10.0), 15.5)
     }
 
-    // 授課教師與學分微標籤：自適應 8.5pt ~ 12pt，粗體圓潤 (Bold / Rounded)
+    // 授課教師與學分微標籤：自適應 8.5pt ~ 12pt，粗體圓潤
     private var metaFontSize: CGFloat {
         min(max(8.5 * widthScale, 8.0), 12.0)
     }
@@ -663,115 +693,69 @@ struct CourseBlockCard: View {
         min(max(3.0 * heightScale, 2.0), 6.5)
     }
 
+    // 是否為緊湊模式（單節課或高度較小）
+    private var isCompact: Bool {
+        spanCount == 1 || height < 58
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             // 卡片本體 (點擊選中/編輯，按住直接上下拖曳平移整門課程)
             ZStack {
-                // 半透明多階漸層背景（富有光澤與通透感，告別單調色塊）
+                // 1. 防穿透實體基底（杜絕系統深色遮罩穿透導致卡片變黑消失）
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+
+                // 2. Apple 柔和雙色微光漸變（高透晶亮光感，告別死板灰色）
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                course.color.opacity(0.38),
-                                course.color.opacity(0.20),
-                                course.color.opacity(0.08)
+                                course.color.opacity(0.24),
+                                course.color.opacity(0.13),
+                                course.color.opacity(0.06)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
 
-                // 核心排版：完全水平垂直居中對稱，自適應字級與大字重
-                VStack(spacing: elementSpacing) {
-                    Spacer(minLength: 0)
-
-                    // 1. 課程名稱 (自適應大字、超重圓潤、多行優化)
-                    Text(course.name)
-                        .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(height > 55 ? 2 : 1)
-                        .lineSpacing(1.5)
-                        .minimumScaleFactor(0.72)
-                        .padding(.horizontal, max(3.0 * widthScale, 2.0))
-
-                    // 2. 核心醒目獨立教室膠囊標籤 (極黑字重、自適應內距、半透明微膠囊)
-                    if !course.classroom.isEmpty {
-                        HStack(spacing: 3) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: classroomFontSize * 0.72, weight: .bold))
-                            Text(course.classroom)
-                                .font(.system(size: classroomFontSize, weight: .black, design: .rounded))
-                        }
-                        .foregroundStyle(course.color)
-                        .padding(.horizontal, max(6.0 * widthScale, 4.5))
-                        .padding(.vertical, max(2.5 * heightScale, 1.8))
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            course.color.opacity(0.32),
-                                            course.color.opacity(0.20)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        )
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    }
-
-                    // 3. 授課教師與學分微標籤 (卡片高度充裕時居中呈現)
-                    if height >= 62 && (!course.teacher.isEmpty || !course.credits.isEmpty) {
-                        HStack(spacing: 3) {
-                            if !course.teacher.isEmpty {
-                                Text(course.teacher)
-                                    .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            if !course.teacher.isEmpty && !course.credits.isEmpty {
-                                Text("•")
-                                    .font(.system(size: metaFontSize * 0.9, weight: .black, design: .rounded))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            if !course.credits.isEmpty {
-                                Text(course.credits)
-                                    .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.secondary.opacity(0.88))
-                                    .lineLimit(1)
-                            }
-                        }
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    }
-
-                    Spacer(minLength: 0)
+                // 3. 核心內容排版
+                if isCompact {
+                    compactContentLayout
+                } else {
+                    standardContentLayout
                 }
-                .padding(3)
             }
             .frame(width: width, height: height)
+            // 4. Apple 微光邊框（模擬玻璃折射 Specular Highlight + 主題色輪廓）
             .overlay(
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                    .stroke(
+                    .strokeBorder(
                         LinearGradient(
                             colors: [
-                                course.color.opacity(isSelected ? 0.95 : 0.60),
-                                course.color.opacity(isSelected ? 0.65 : 0.25)
+                                Color.white.opacity(0.40),
+                                course.color.opacity(0.18),
+                                Color.white.opacity(0.08)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: isSelected ? 2.5 : 1.2
+                        lineWidth: 1
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .stroke(
+                        course.color.opacity(isSelected ? 0.92 : 0.38),
+                        lineWidth: isSelected ? 2.5 : 1.0
                     )
             )
             .shadow(
-                color: isDraggingWhole ? course.color.opacity(0.45) : (isSelected ? course.color.opacity(0.30) : Color.black.opacity(0.04)),
-                radius: isDraggingWhole ? 12 : (isSelected ? 6 : 2),
+                color: isDraggingWhole ? course.color.opacity(0.42) : (isSelected ? course.color.opacity(0.28) : Color.black.opacity(0.05)),
+                radius: isDraggingWhole ? 10 : (isSelected ? 5 : 2),
                 x: 0,
-                y: isDraggingWhole ? 6 : 2
+                y: isDraggingWhole ? 5 : 1
             )
             .scaleEffect(isDraggingWhole ? 1.03 : 1.0)
             .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isDraggingWhole)
@@ -789,7 +773,7 @@ struct CourseBlockCard: View {
                     }
             )
 
-            // MARK: 選中狀態下的上下邊框拖曳手柄 (使用全域命名網格座標空間，徹底消除抖動)
+            // MARK: 選中狀態下的上下邊框拖曳手柄 (全域網格座標空間，零抖動)
             if isSelected {
                 VStack {
                     // 頂部拖曳把手
@@ -839,5 +823,141 @@ struct CourseBlockCard: View {
                 .frame(width: width, height: height)
             }
         }
+    }
+
+    // MARK: - 單節課（緊湊模式）專屬排版：雙行全景佈局，長課名、教室、教師與學分 100% 完整顯示
+
+    private var compactContentLayout: some View {
+        VStack(spacing: 2) {
+            Spacer(minLength: 0)
+
+            // 行 1: 課程名稱（支援雙行換行與縮小係數 0.65，長課名絕不被省略截斷）
+            Text(course.name)
+                .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.65)
+                .padding(.horizontal, 2)
+
+            // 行 2: 橫向一體化緊湊標籤：📍 教室 · 教師 · 學分
+            HStack(spacing: 2) {
+                if !course.classroom.isEmpty {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: metaFontSize * 0.72, weight: .bold))
+                    Text(course.classroom)
+                        .font(.system(size: metaFontSize, weight: .black, design: .rounded))
+                }
+
+                if !course.teacher.isEmpty {
+                    if !course.classroom.isEmpty {
+                        Text("·")
+                            .font(.system(size: metaFontSize * 0.8, weight: .bold))
+                            .foregroundStyle(.secondary.opacity(0.6))
+                    }
+                    Text(course.teacher)
+                        .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+
+                if !course.credits.isEmpty {
+                    Text("·")
+                        .font(.system(size: metaFontSize * 0.8, weight: .bold))
+                        .foregroundStyle(.secondary.opacity(0.6))
+                    Text(course.credits)
+                        .font(.system(size: metaFontSize * 0.95, weight: .bold, design: .rounded))
+                        .foregroundStyle(.secondary.opacity(0.9))
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.68)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1.5)
+            .background(
+                Capsule()
+                    .fill(course.color.opacity(0.16))
+            )
+
+            Spacer(minLength: 0)
+        }
+        .padding(2.5)
+    }
+
+    // MARK: - 多節課（標準模式）排版：三行式現代大氣美學
+
+    private var standardContentLayout: some View {
+        VStack(spacing: elementSpacing) {
+            Spacer(minLength: 0)
+
+            // 1. 課程名稱 (自適應大字、超重圓潤、多行優化)
+            Text(course.name)
+                .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(spanCount > 2 ? 3 : 2)
+                .lineSpacing(1.5)
+                .minimumScaleFactor(0.70)
+                .padding(.horizontal, max(3.0 * widthScale, 2.0))
+
+            // 2. 獨立教室膠囊 (極黑字重、鮮明雙色漸層、微光外框)
+            if !course.classroom.isEmpty {
+                HStack(spacing: 3) {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: classroomFontSize * 0.72, weight: .bold))
+                    Text(course.classroom)
+                        .font(.system(size: classroomFontSize, weight: .black, design: .rounded))
+                }
+                .foregroundStyle(course.color)
+                .padding(.horizontal, max(6.0 * widthScale, 4.5))
+                .padding(.vertical, max(2.5 * heightScale, 1.8))
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    course.color.opacity(0.28),
+                                    course.color.opacity(0.16)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(course.color.opacity(0.25), lineWidth: 0.5)
+                )
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            }
+
+            // 3. 授課教師與學分微標籤
+            if !course.teacher.isEmpty || !course.credits.isEmpty {
+                HStack(spacing: 3) {
+                    if !course.teacher.isEmpty {
+                        Text(course.teacher)
+                            .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if !course.teacher.isEmpty && !course.credits.isEmpty {
+                        Text("•")
+                            .font(.system(size: metaFontSize * 0.9, weight: .black, design: .rounded))
+                            .foregroundStyle(.tertiary)
+                    }
+                    if !course.credits.isEmpty {
+                        Text(course.credits)
+                            .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary.opacity(0.9))
+                            .lineLimit(1)
+                    }
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(3)
     }
 }
