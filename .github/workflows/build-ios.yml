@@ -19,4 +19,5 @@ jobs:
 
       - name: Build with xcodebuild
         run: |
+          cd ClassSchedule.swiftpm
           xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
