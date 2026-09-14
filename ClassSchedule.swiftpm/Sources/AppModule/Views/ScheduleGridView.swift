@@ -105,7 +105,7 @@ public struct ScheduleGridView: View {
                 }
 
                 // 左上角選單按鈕（Apple 原生單層液態玻璃圓形按鈕）
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
                         Button {
                             showingSettingsSheet = true
@@ -177,7 +177,7 @@ public struct ScheduleGridView: View {
                 }
 
                 // MARK: 右上角 Apple 原生工具列按鈕（Apple 原生單層液態玻璃圓形按鈕）
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 12) {
                         if selectedTab == .schedule {
                             Button {
