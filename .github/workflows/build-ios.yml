@@ -30,8 +30,21 @@ jobs:
           cd ClassSchedule.swiftpm
           mkdir -p Payload
           cp -r build/Build/Products/*-iphoneos/*.app Payload/
+          APP_PATH=$(ls -d Payload/*.app)
+          echo "Configuring Info.plist in $APP_PATH"
+
+          # 啟用 120Hz ProMotion 超高更新率與原生全螢幕渲染
+          /usr/libexec/PlistBuddy -c "Add :CADisableMinimumFrameDurationOnPhone bool true" "$APP_PATH/Info.plist" || /usr/libexec/PlistBuddy -c "Set :CADisableMinimumFrameDurationOnPhone true" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CADisableMinimumFrameDuration bool true" "$APP_PATH/Info.plist" || /usr/libexec/PlistBuddy -c "Set :CADisableMinimumFrameDuration true" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :UILaunchScreen dict" "$APP_PATH/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool false" "$APP_PATH/Info.plist" || /usr/libexec/PlistBuddy -c "Set :UIRequiresFullScreen false" "$APP_PATH/Info.plist"
+
+          echo "--- Info.plist verification ---"
+          plutil -p "$APP_PATH/Info.plist" | grep -E "CADisable|UILaunch" || true
+
           zip -qr ClassSchedule.ipa Payload
           ls -lh ClassSchedule.ipa
+
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4

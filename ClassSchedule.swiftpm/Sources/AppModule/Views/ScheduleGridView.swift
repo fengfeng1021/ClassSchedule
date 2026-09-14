@@ -83,7 +83,13 @@ public struct ScheduleGridView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
                 .padding(.bottom, 6)
-                .background(Color(uiColor: .systemGroupedBackground))
+                .background(.ultraThinMaterial)
+                .overlay(
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.06))
+                        .frame(height: 0.5),
+                    alignment: .bottom
+                )
 
                 ZStack {
                     scheduleMatrixContentView
@@ -159,33 +165,80 @@ public struct ScheduleGridView: View {
                                 Label("清空目前課表", systemImage: "trash")
                             }
                         } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 18, weight: .medium))
-                                .frame(width: 32, height: 32)
-                                .contentShape(Rectangle())
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 34, height: 34)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.40),
+                                                    Color.white.opacity(0.12)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.8
+                                        )
+                                )
+                                .shadow(color: Color.black.opacity(0.06), radius: 3, x: 0, y: 1.5)
                         }
                     }
 
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             Button {
                                 showingImportSheet = true
                             } label: {
                                 Image(systemName: "arrow.down.doc")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 32, height: 32)
-                                    .contentShape(Rectangle())
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 34, height: 34)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.40),
+                                                        Color.white.opacity(0.12)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 0.8
+                                            )
+                                    )
+                                    .shadow(color: Color.black.opacity(0.06), radius: 3, x: 0, y: 1.5)
                             }
+                            .buttonStyle(.plain)
                             .accessibilityLabel("匯入課表")
 
                             Button {
                                 courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .frame(width: 32, height: 32)
-                                    .contentShape(Rectangle())
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color.blue, Color(red: 0.05, green: 0.45, blue: 0.95)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        in: Circle()
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
+                                    )
+                                    .shadow(color: Color.blue.opacity(0.38), radius: 5, x: 0, y: 2)
                             }
+                            .buttonStyle(.plain)
                             .accessibilityLabel("新增課程")
                         }
                     }
@@ -242,9 +295,9 @@ public struct ScheduleGridView: View {
                     .padding(.bottom, 4)
             }
 
-            // 2. 星期標頭行 (固定頂部)
+            // 2. 星期標頭行 (固定頂部，Apple 液態毛玻璃材質)
             weekdayHeaderRow
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .background(.ultraThinMaterial)
 
             Divider()
 
@@ -323,15 +376,26 @@ public struct ScheduleGridView: View {
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 7)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(current.color.opacity(0.35), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    current.color.opacity(0.65),
+                                    Color.white.opacity(0.30),
+                                    current.color.opacity(0.20)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 )
             }
             .buttonStyle(.plain)
@@ -371,11 +435,26 @@ public struct ScheduleGridView: View {
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 7)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    next.course.color.opacity(0.55),
+                                    Color.white.opacity(0.25),
+                                    next.course.color.opacity(0.18)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 )
             }
             .buttonStyle(.plain)
@@ -447,7 +526,7 @@ public struct ScheduleGridView: View {
                     }
                 }
                 .frame(width: timeColumnWidth, height: max(cellHeight, 15.0))
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .background(.ultraThinMaterial)
                 .overlay(
                     Rectangle()
                         .frame(height: 0.5)
@@ -742,17 +821,21 @@ struct CourseBlockCard: View {
         ZStack(alignment: .top) {
             // 卡片本體 (點擊選中/編輯，按住直接上下拖曳平移整門課程)
             ZStack {
-                // 1. 防穿透實體基底（杜絕系統深色遮罩穿透導致卡片變黑消失）
+                // 1. Apple 液態毛玻璃材質基底 (超透光感，即時模糊背後格線，呈現頂級玻璃質感)
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                    .fill(.ultraThinMaterial)
 
-                // 2. Apple 柔和雙色微光漸變（高透晶亮光感，告別死板灰色）
+                // 2. 半透明次級分組背景防透層 (在深色/淺色模式下維持晶瑩水感)
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.35))
+
+                // 3. Apple 柔和雙色微光漸變（高透晶亮光感）
                 RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                course.color.opacity(0.24),
-                                course.color.opacity(0.13),
+                                course.color.opacity(0.26),
+                                course.color.opacity(0.14),
                                 course.color.opacity(0.06)
                             ],
                             startPoint: .topLeading,

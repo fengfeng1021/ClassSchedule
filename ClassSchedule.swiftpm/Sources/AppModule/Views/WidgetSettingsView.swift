@@ -78,13 +78,14 @@ public struct WidgetSettingsView: View {
 
             // 小工具預覽畫布卡片
             ZStack {
-                // 模擬 iOS 桌面微背景
+                // 模擬 iOS 桌面生動微光背景 (讓液態毛玻璃效果在真機上完美折射顯現)
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(uiColor: .secondarySystemGroupedBackground),
-                                Color(uiColor: .tertiarySystemGroupedBackground)
+                                Color(red: 0.18, green: 0.28, blue: 0.44),
+                                Color(red: 0.12, green: 0.16, blue: 0.28),
+                                Color(red: 0.22, green: 0.18, blue: 0.32)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -92,7 +93,17 @@ public struct WidgetSettingsView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.25),
+                                        Color.clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
                     )
 
                 // 實際渲染的小工具模型
@@ -106,6 +117,7 @@ public struct WidgetSettingsView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
         )
+
     }
 
     private var previewCanvasHeight: CGFloat {
@@ -899,35 +911,51 @@ public struct WidgetSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // 小工具背景外觀處理
+    // 小工具背景外觀處理 (支援 Apple 原生液態毛玻璃材質)
     @ViewBuilder
     private func widgetBackground(for course: Course?) -> some View {
         switch settings.theme {
         case .systemBlur:
-            Color(uiColor: .systemBackground)
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.35),
+                        Color.white.opacity(0.08),
+                        Color.clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         case .courseColor:
-            LinearGradient(
-                colors: [
-                    (course?.color ?? .blue).opacity(0.22),
-                    (course?.color ?? .blue).opacity(0.08)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .background(Color(uiColor: .systemBackground))
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient(
+                    colors: [
+                        (course?.color ?? .blue).opacity(0.35),
+                        (course?.color ?? .blue).opacity(0.12),
+                        Color.clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         case .darkOLED:
             Color.black
         case .softGradient:
-            LinearGradient(
-                colors: [
-                    Color.blue.opacity(0.15),
-                    Color.purple.opacity(0.12),
-                    Color.pink.opacity(0.08)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .background(Color(uiColor: .systemBackground))
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient(
+                    colors: [
+                        Color.blue.opacity(0.20),
+                        Color.purple.opacity(0.14),
+                        Color.pink.opacity(0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         }
     }
 

@@ -173,7 +173,7 @@ public struct CleanScheduleExportSheet: View {
                                 .padding(.horizontal, 20)
                                 .padding(.top, 4)
 
-                            // 操作按鈕組
+                            // 操作按鈕組 (Apple 原生微光與液態毛玻璃按鈕)
                             VStack(spacing: 12) {
                                 Button {
                                     saveImageToPhotos(image)
@@ -185,9 +185,20 @@ public struct CleanScheduleExportSheet: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
-                                    .background(Color.blue)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color.blue, Color(red: 0.05, green: 0.45, blue: 0.95)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
                                     .foregroundStyle(.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(Color.white.opacity(0.30), lineWidth: 1)
+                                    )
+                                    .shadow(color: Color.blue.opacity(0.32), radius: 8, x: 0, y: 3)
                                 }
 
                                 Button {
@@ -200,15 +211,26 @@ public struct CleanScheduleExportSheet: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 13)
-                                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                                     .foregroundStyle(.primary)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.38),
+                                                        Color.white.opacity(0.12)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1
+                                            )
                                     )
+                                    .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1.5)
                                 }
                             }
+
                             .padding(.horizontal, 16)
                             .padding(.bottom, 24)
                         }
