@@ -2,43 +2,16 @@ import Foundation
 import SwiftUI
 import PDFKit
 
-/// 課表智能解析器（支援亞洲大學等各大專院校 PDF 課表提取、文字表格智能識別與範例一鍵載入）
+/// 課表智能解析器（支援各大專院校 PDF 課表提取、選課系統文字表格智能識別）
 public final class ScheduleParser {
 
-    // MARK: - 1. 亞洲大學 115 學年度 汪俊鋒同學真實 29 學分示範課表
+    // MARK: - 1. 通用大學示範課表 (非寫死個人資訊，供測試使用)
 
-    public static var asiaUniversitySampleCourses: [Course] {
+    public static var generalSampleCourses: [Course] {
         [
-            // ===== 週一 =====
             Course(
-                name: "畢業專題(二) A",
-                teacher: "陳士農",
-                classroom: "未確認教室",
-                credits: "1學分",
-                dayOfWeek: 1,
-                startPeriodId: "1",
-                endPeriodId: "1",
-                startTime: TimeOfDay(hour: 8, minute: 10),
-                endTime: TimeOfDay(hour: 9, minute: 0),
-                colorName: "purple",
-                notes: "專題實作指導"
-            ),
-            Course(
-                name: "數位創作與行銷 A",
-                teacher: "石金龍",
-                classroom: "I426",
-                credits: "2學分",
-                dayOfWeek: 1,
-                startPeriodId: "3",
-                endPeriodId: "4",
-                startTime: TimeOfDay(hour: 10, minute: 10),
-                endTime: TimeOfDay(hour: 12, minute: 0),
-                colorName: "blue",
-                notes: "數位創作上機實驗"
-            ),
-            Course(
-                name: "商業模式創新 B",
-                teacher: "黃建元",
+                name: "商業模式創新",
+                teacher: "黃教授",
                 classroom: "M008",
                 credits: "3學分",
                 dayOfWeek: 1,
@@ -47,11 +20,24 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 12, minute: 10),
                 endTime: TimeOfDay(hour: 15, minute: 0),
                 colorName: "orange",
-                notes: "跨越中午時段連上 3 節"
+                notes: "個案研討與分組報告"
             ),
             Course(
-                name: "行銷管理 D",
-                teacher: "陳崇昊",
+                name: "數位創作與行銷",
+                teacher: "石副教授",
+                classroom: "I426",
+                credits: "2學分",
+                dayOfWeek: 1,
+                startPeriodId: "3",
+                endPeriodId: "4",
+                startTime: TimeOfDay(hour: 10, minute: 10),
+                endTime: TimeOfDay(hour: 12, minute: 0),
+                colorName: "blue",
+                notes: "上機操作實驗"
+            ),
+            Course(
+                name: "行銷管理",
+                teacher: "陳博士",
                 classroom: "M003",
                 credits: "3學分",
                 dayOfWeek: 1,
@@ -60,13 +46,11 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 15, minute: 10),
                 endTime: TimeOfDay(hour: 18, minute: 0),
                 colorName: "teal",
-                notes: "行銷實務案例分析"
+                notes: "行銷企劃與分析"
             ),
-
-            // ===== 週二 =====
             Course(
-                name: "模型製作(一) B",
-                teacher: "蕭美村",
+                name: "模型製作與實務",
+                teacher: "蕭教授",
                 classroom: "創意工坊",
                 credits: "3學分",
                 dayOfWeek: 2,
@@ -75,11 +59,11 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 9, minute: 10),
                 endTime: TimeOfDay(hour: 12, minute: 0),
                 colorName: "indigo",
-                notes: "請至創意工坊實作"
+                notes: "實作工場操作"
             ),
             Course(
-                name: "智慧傳播應用實務 B",
-                teacher: "簡淑芸",
+                name: "智慧傳播應用實務",
+                teacher: "簡助理教授",
                 classroom: "I318",
                 credits: "3學分",
                 dayOfWeek: 2,
@@ -88,13 +72,11 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 13, minute: 10),
                 endTime: TimeOfDay(hour: 16, minute: 0),
                 colorName: "mint",
-                notes: "影音傳播製作"
+                notes: "影音專題製作"
             ),
-
-            // ===== 週三 =====
             Course(
-                name: "電腦繪圖 B",
-                teacher: "楊靜瑜",
+                name: "電腦繪圖實務",
+                teacher: "楊副教授",
                 classroom: "H607",
                 credits: "3學分",
                 dayOfWeek: 3,
@@ -106,36 +88,8 @@ public final class ScheduleParser {
                 notes: "電腦繪圖軟體實機操作"
             ),
             Course(
-                name: "學輔時間(四) A",
-                teacher: "楊靜瑜",
-                classroom: "L007",
-                credits: "0學分",
-                dayOfWeek: 3,
-                startPeriodId: "8",
-                endPeriodId: "8",
-                startTime: TimeOfDay(hour: 16, minute: 10),
-                endTime: TimeOfDay(hour: 17, minute: 0),
-                colorName: "teal",
-                notes: "導師學生輔導時間"
-            ),
-            Course(
-                name: "電腦繪圖 B (實習)",
-                teacher: "楊靜瑜",
-                classroom: "H607",
-                credits: "0學分",
-                dayOfWeek: 3,
-                startPeriodId: "9",
-                endPeriodId: "9",
-                startTime: TimeOfDay(hour: 17, minute: 10),
-                endTime: TimeOfDay(hour: 18, minute: 0),
-                colorName: "pink",
-                notes: "實機輔導"
-            ),
-
-            // ===== 週四 =====
-            Course(
-                name: "設計整合 A",
-                teacher: "方曉瑋, 林磐聳",
+                name: "設計整合專題",
+                teacher: "方教授",
                 classroom: "A413",
                 credits: "2學分",
                 dayOfWeek: 4,
@@ -144,26 +98,11 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 13, minute: 10),
                 endTime: TimeOfDay(hour: 15, minute: 0),
                 colorName: "blue",
-                notes: "綜合設計專題指導"
+                notes: "綜合專題研討"
             ),
             Course(
-                name: "設計素描 A",
-                teacher: "簡淑君",
-                classroom: "A117",
-                credits: "2學分",
-                dayOfWeek: 4,
-                startPeriodId: "7",
-                endPeriodId: "8",
-                startTime: TimeOfDay(hour: 15, minute: 10),
-                endTime: TimeOfDay(hour: 17, minute: 0),
-                colorName: "purple",
-                notes: "基礎素描表現技法"
-            ),
-
-            // ===== 週五 =====
-            Course(
-                name: "服務業管理 B",
-                teacher: "簡均宇",
+                name: "服務業創新管理",
+                teacher: "簡博士",
                 classroom: "I307",
                 credits: "3學分",
                 dayOfWeek: 5,
@@ -172,24 +111,11 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 9, minute: 10),
                 endTime: TimeOfDay(hour: 12, minute: 0),
                 colorName: "indigo",
-                notes: "服務創新與管理個案"
+                notes: "創新服務案例"
             ),
             Course(
-                name: "梳髮實務 A",
-                teacher: "黃煊予",
-                classroom: "A201",
-                credits: "2學分",
-                dayOfWeek: 5,
-                startPeriodId: "5",
-                endPeriodId: "6",
-                startTime: TimeOfDay(hour: 13, minute: 10),
-                endTime: TimeOfDay(hour: 15, minute: 0),
-                colorName: "orange",
-                notes: "造型梳理實務"
-            ),
-            Course(
-                name: "妝髮整體造型設計 A",
-                teacher: "林玉鏡",
+                name: "整體造型設計實務",
+                teacher: "林副教授",
                 classroom: "A201",
                 credits: "2學分",
                 dayOfWeek: 5,
@@ -198,7 +124,7 @@ public final class ScheduleParser {
                 startTime: TimeOfDay(hour: 15, minute: 10),
                 endTime: TimeOfDay(hour: 17, minute: 0),
                 colorName: "teal",
-                notes: "專業妝髮整體造型"
+                notes: "專業造型指導"
             )
         ]
     }
@@ -221,11 +147,6 @@ public final class ScheduleParser {
             return []
         }
 
-        // 如果檢測到是亞洲大學課表特徵詞，直接啟用高精度矩陣對齊解析
-        if fullText.contains("亞洲大學") || fullText.contains("資傳系") || fullText.contains("汪俊鋒") || fullText.contains("商業模式創新") {
-            return asiaUniversitySampleCourses
-        }
-
         return parseGeneralText(fullText)
     }
 
@@ -240,7 +161,6 @@ public final class ScheduleParser {
         let colorPalette = ["indigo", "blue", "teal", "mint", "orange", "purple", "pink"]
         var colorIndex = 0
 
-        // 啟發式關鍵字識別：尋找包含「學分」或教室代碼的區塊
         var i = 0
         while i < lines.count {
             let line = lines[i]
@@ -252,10 +172,11 @@ public final class ScheduleParser {
                 let teacher = (i + 1 < lines.count) ? lines[i + 1] : ""
                 let classroom = (i + 2 < lines.count) ? lines[i + 2] : "未確認教室"
 
-                // 推斷星期與節次
+                // 根據已解析的課程輪轉推算星期與節次
                 let guessedDay = (parsedCourses.count % 5) + 1
-                let guessedPeriodStart = String(((parsedCourses.count * 2) % 8) + 1)
-                let guessedPeriodEnd = String(Int(guessedPeriodStart)! + 1)
+                let startPeriodInt = ((parsedCourses.count * 2) % 8) + 1
+                let guessedPeriodStart = String(startPeriodInt)
+                let guessedPeriodEnd = String(startPeriodInt + 1)
 
                 let color = colorPalette[colorIndex % colorPalette.count]
                 colorIndex += 1
@@ -277,6 +198,6 @@ public final class ScheduleParser {
             i += 1
         }
 
-        return parsedCourses.isEmpty ? asiaUniversitySampleCourses : parsedCourses
+        return parsedCourses.isEmpty ? generalSampleCourses : parsedCourses
     }
 }

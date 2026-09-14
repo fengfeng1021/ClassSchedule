@@ -1,6 +1,10 @@
 import SwiftUI
 
-/// 全週格狀課表主視圖：支援節次制方正對齊、點選空白格設課、上下邊框拖曳擴展節次與一鍵匯入
+/// 全螢幕自適應免滑動課表主視圖：
+/// 1. 完全無 ScrollView，在 iPad 與 iPhone 上一屏全覽所有課程，無需滑動。
+/// 2. 支援點選空白格設課、課程上下邊框拖曳調整節次跨度（不被滑動搶走手勢）。
+/// 3. 右上角獨立「匯入課表」與「新增課程」兩大按鈕。
+/// 4. 現代大專院校課表質感，醒目教室膠囊標籤。
 public struct ScheduleGridView: View {
     @ObservedObject var store: CourseStore
 
@@ -9,21 +13,20 @@ public struct ScheduleGridView: View {
     @State private var courseToAddDayAndPeriod: (day: Int, periodId: String)?
     @State private var selectedCourseId: UUID?
 
-    @State private var showingAddSheet = false
     @State private var showingSettingsSheet = false
     @State private var showingImportSheet = false
     @State private var showingClearAlert = false
 
-    // 拖曳縮放臨時狀態
+    // 拖曳縮放即時位移
     @State private var draggingBottomCourseId: UUID?
     @State private var dragBottomOffset: CGFloat = 0
     @State private var draggingTopCourseId: UUID?
     @State private var dragTopOffset: CGFloat = 0
 
-    // 每 15 秒更新一次目前時間與狀態
+    // 每 15 秒輕量更新一次目前時間與狀態
     private let timer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
 
-    private let timeColumnWidth: CGFloat = 52.0
+    private let timeColumnWidth: CGFloat = 46.0
 
     public init(store: CourseStore) {
         self.store = store
@@ -31,6 +34,10 @@ public struct ScheduleGridView: View {
 
     private var settings: ScheduleSettings {
         store.settings
+    }
+
+    private var activePeriods: [Period] {
+        settings.activePeriods
     }
 
     private var visibleDays: [Int] {
@@ -44,11 +51,11 @@ public struct ScheduleGridView: View {
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // MARK: 1. 頂部教室速查橫幅
+                // MARK: 1. 頂部動態島風格教室速查橫幅
                 classroomBanner
-                    .padding(.horizontal, 14)
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
 
                 // MARK: 2. 星期標頭行 (固定於頂部)
                 weekdayHeaderRow
@@ -56,25 +63,26 @@ public struct ScheduleGridView: View {
 
                 Divider()
 
-                // MARK: 3. 節次方性格狀課表矩陣
+                // MARK: 3. 全螢幕自適應免滑動課表矩陣 (Zero ScrollView)
                 GeometryReader { geometry in
                     let availableWidth = geometry.size.width
-                    let columnWidth = max((availableWidth - timeColumnWidth) / CGFloat(visibleDays.count), 44.0)
+                    let availableHeight = geometry.size.height
+                    let columnWidth = (availableWidth - timeColumnWidth) / CGFloat(visibleDays.count)
+                    let periodCount = max(activePeriods.count, 1)
+                    let cellHeight = availableHeight / CGFloat(periodCount)
 
-                    ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                    HStack(alignment: .top, spacing: 0) {
+                        // 左側：節次與時間標籤列
+                        periodsColumnView(cellHeight: cellHeight)
+
+                        // 右側：各星期課程格子矩陣
                         HStack(alignment: .top, spacing: 0) {
-                            // 左側：節次與時間軸列
-                            periodsTimeColumn
-
-                            // 右側：各星期的格子與課程矩陣
-                            HStack(alignment: .top, spacing: 0) {
-                                ForEach(visibleDays, id: \.self) { day in
-                                    dayColumnView(day: day, columnWidth: columnWidth)
-                                }
+                            ForEach(visibleDays, id: \.self) { day in
+                                dayColumnView(day: day, columnWidth: columnWidth, cellHeight: cellHeight)
                             }
                         }
-                        .frame(minWidth: availableWidth)
                     }
+                    .frame(width: availableWidth, height: availableHeight)
                 }
             }
             .background(Color(uiColor: .systemGroupedBackground))
@@ -85,18 +93,15 @@ public struct ScheduleGridView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Button {
-                            showingImportSheet = true
+                            showingSettingsSheet = true
                         } label: {
-                            Label("一鍵匯入課表", systemImage: "arrow.down.doc.fill")
+                            Label("課表自訂設定", systemImage: "gearshape")
                         }
 
-                        Menu {
-                            Button("緊湊 (52 pt)") { updateCellHeight(52) }
-                            Button("標準 (65 pt)") { updateCellHeight(65) }
-                            Button("寬敞 (80 pt)") { updateCellHeight(80) }
-                            Button("超大 (96 pt)") { updateCellHeight(96) }
+                        Button {
+                            toggleEveningPeriods()
                         } label: {
-                            Label("調整格子大小", systemImage: "arrow.up.left.and.down.right.magnifyingglass")
+                            Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
                         }
 
                         Button {
@@ -106,12 +111,6 @@ public struct ScheduleGridView: View {
                         }
 
                         Divider()
-
-                        Button {
-                            showingSettingsSheet = true
-                        } label: {
-                            Label("課表自訂設定", systemImage: "gearshape")
-                        }
 
                         Button(role: .destructive) {
                             showingClearAlert = true
@@ -124,18 +123,23 @@ public struct ScheduleGridView: View {
                     }
                 }
 
-                // MARK: 右上角新增課程按鈕
+                // MARK: 右上角兩個獨立分開的按鈕：「匯入課表」與「新增課程」
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 14) {
+                        // 按鈕一：匯入課表
                         Button {
                             showingImportSheet = true
                         } label: {
-                            Image(systemName: "arrow.down.doc")
-                                .font(.system(size: 15, weight: .medium))
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.down.doc")
+                                Text("匯入課表")
+                                    .font(.subheadline.weight(.medium))
+                            }
                         }
 
+                        // 按鈕二：新增課程
                         Button {
-                            courseToAddDayAndPeriod = (day: currentWeekday, periodId: "1")
+                            courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 16, weight: .bold))
@@ -189,29 +193,29 @@ public struct ScheduleGridView: View {
             Button {
                 courseToEdit = current
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Circle()
                             .fill(.green)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 7, height: 7)
                         Text("上課中")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundStyle(.green)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
                     .background(.green.opacity(0.12), in: Capsule())
 
                     Text("當前教室:")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
 
                     Text(current.classroom)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
                     Text("(\(current.name))")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
 
@@ -221,16 +225,16 @@ public struct ScheduleGridView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+                        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(current.color.opacity(0.35), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(current.color.opacity(0.3), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -239,28 +243,28 @@ public struct ScheduleGridView: View {
             Button {
                 courseToEdit = next.course
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: "figure.walk")
-                            .font(.caption2)
-                        Text(next.minutesUntil <= 30 ? "\(next.minutesUntil)分鐘後" : "下一節")
-                            .font(.caption.weight(.bold))
+                            .font(.system(size: 9))
+                        Text(next.minutesUntil <= 30 ? "\(next.minutesUntil)分後" : "下一節")
+                            .font(.caption2.weight(.bold))
                     }
                     .foregroundStyle(next.course.color)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
                     .background(next.course.color.opacity(0.12), in: Capsule())
 
                     Text("前往教室:")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
 
                     Text(next.course.classroom)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
                     Text("(\(next.course.startTime.formatted))")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
 
                     Spacer()
@@ -269,30 +273,30 @@ public struct ScheduleGridView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+                        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
                 )
             }
             .buttonStyle(.plain)
 
         } else {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.teal)
-                Text(store.todayCourses(at: currentDate).isEmpty ? "今日無課程安排" : "今日課程已全部結束，好好休息！")
-                    .font(.caption)
+                Text(store.todayCourses(at: currentDate).isEmpty ? "今日無排課" : "今日課程已全部結束")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.6))
             )
         }
@@ -305,33 +309,26 @@ public struct ScheduleGridView: View {
             // 左上角標題
             VStack(spacing: 1) {
                 Text("節次")
-                    .font(.system(size: 11, weight: .bold))
-                Text("時間")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 10, weight: .bold))
             }
-            .frame(width: timeColumnWidth, height: 40)
+            .frame(width: timeColumnWidth, height: 32)
             .background(Color(uiColor: .tertiarySystemGroupedBackground).opacity(0.4))
 
-            // 週一至週五/週日標頭
+            // 各星期標頭
             ForEach(visibleDays, id: \.self) { day in
                 let isToday = (day == currentWeekday)
-                VStack(spacing: 2) {
+                HStack(spacing: 3) {
                     Text(Course.dayName(for: day))
-                        .font(.system(size: 13, weight: isToday ? .bold : .medium))
+                        .font(.system(size: 12, weight: isToday ? .bold : .medium))
                         .foregroundStyle(isToday ? .blue : .primary)
 
                     if isToday {
                         Circle()
                             .fill(.blue)
                             .frame(width: 4, height: 4)
-                    } else {
-                        Circle()
-                            .fill(Color.clear)
-                            .frame(width: 4, height: 4)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: 40)
+                .frame(maxWidth: .infinity, maxHeight: 32)
                 .background(isToday ? Color.blue.opacity(0.08) : Color.clear)
                 .overlay(
                     Rectangle()
@@ -343,29 +340,29 @@ public struct ScheduleGridView: View {
         }
     }
 
-    // MARK: - 3. 左側節次與時間軸列
+    // MARK: - 3. 左側節次與時間軸列 (等比填滿高度)
 
-    private var periodsTimeColumn: some View {
+    private func periodsColumnView(cellHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            ForEach(settings.periods) { period in
-                VStack(spacing: 2) {
+            ForEach(activePeriods) { period in
+                VStack(spacing: 1) {
                     Text(period.shortName)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
                     VStack(spacing: 0) {
                         Text(period.startTime.formatted)
                         Text(period.endTime.formatted)
                     }
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundStyle(.secondary.opacity(0.85))
                 }
-                .frame(width: timeColumnWidth, height: settings.gridCellHeight)
+                .frame(width: timeColumnWidth, height: cellHeight)
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .overlay(
                     Rectangle()
                         .frame(height: 0.5)
-                        .foregroundStyle(Color.primary.opacity(0.08)),
+                        .foregroundStyle(Color.primary.opacity(0.06)),
                     alignment: .bottom
                 )
             }
@@ -378,20 +375,19 @@ public struct ScheduleGridView: View {
         )
     }
 
-    // MARK: - 4. 單日課程與空白格矩陣
+    // MARK: - 4. 單日課程矩陣 (點選空白格設課 + 邊框拖曳上下擴展)
 
-    private func dayColumnView(day: Int, columnWidth: CGFloat) -> some View {
+    private func dayColumnView(day: Int, columnWidth: CGFloat, cellHeight: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            // 背景底層：空白網格線（點擊直接新增課程）
+            // 背景底層：各節次空白格線（點擊直接新增課程）
             VStack(spacing: 0) {
-                ForEach(settings.periods) { period in
+                ForEach(activePeriods) { period in
                     Button {
-                        // 點選空白格，快速填寫該節次課程
                         courseToAddDayAndPeriod = (day: day, periodId: period.id)
                     } label: {
                         Rectangle()
-                            .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.25))
-                            .frame(width: columnWidth, height: settings.gridCellHeight)
+                            .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.2))
+                            .frame(width: columnWidth, height: cellHeight)
                             .overlay(
                                 Rectangle()
                                     .frame(height: 0.5)
@@ -409,27 +405,27 @@ public struct ScheduleGridView: View {
                 }
             }
 
-            // 頂層：各課程卡片（精確跨節、支援上下手柄拖曳選格）
+            // 頂層：課程卡片（精確跨節、支援無衝突上下邊框拖曳）
             ForEach(store.courses.filter { $0.dayOfWeek == day }) { course in
-                if let startIndex = settings.indexOfPeriod(id: course.startPeriodId),
-                   let endIndex = settings.indexOfPeriod(id: course.endPeriodId) {
+                if let startIndex = settings.activeIndexOfPeriod(id: course.startPeriodId),
+                   let endIndex = settings.activeIndexOfPeriod(id: course.endPeriodId) {
 
                     let minIndex = min(startIndex, endIndex)
                     let maxIndex = max(startIndex, endIndex)
                     let spanCount = maxIndex - minIndex + 1
 
-                    let topY = CGFloat(minIndex) * settings.gridCellHeight + 2.0
-                    let baseHeight = CGFloat(spanCount) * settings.gridCellHeight - 4.0
+                    let topY = CGFloat(minIndex) * cellHeight + 1.5
+                    let baseHeight = CGFloat(spanCount) * cellHeight - 3.0
 
                     // 拖曳中的臨時高度與位置計算
                     let isDraggingBottom = (draggingBottomCourseId == course.id)
                     let isDraggingTop = (draggingTopCourseId == course.id)
-                    let actualHeight = max(baseHeight + (isDraggingBottom ? dragBottomOffset : 0) - (isDraggingTop ? dragTopOffset : 0), settings.gridCellHeight - 4.0)
+                    let actualHeight = max(baseHeight + (isDraggingBottom ? dragBottomOffset : 0) - (isDraggingTop ? dragTopOffset : 0), cellHeight - 3.0)
                     let actualY = topY + (isDraggingTop ? dragTopOffset : 0)
 
                     CourseBlockCard(
                         course: course,
-                        width: columnWidth - 4.0,
+                        width: columnWidth - 3.0,
                         height: actualHeight,
                         isSelected: selectedCourseId == course.id,
                         onTap: {
@@ -445,14 +441,14 @@ public struct ScheduleGridView: View {
                             dragTopOffset = deltaY
                         },
                         onTopDragEnded: { deltaY in
-                            commitTopDrag(course: course, deltaY: deltaY, currentStartIndex: minIndex)
+                            commitTopDrag(course: course, deltaY: deltaY, currentStartIndex: minIndex, cellHeight: cellHeight)
                         },
                         onBottomDragChanged: { deltaY in
                             draggingBottomCourseId = course.id
                             dragBottomOffset = deltaY
                         },
                         onBottomDragEnded: { deltaY in
-                            commitBottomDrag(course: course, deltaY: deltaY, currentEndIndex: maxIndex)
+                            commitBottomDrag(course: course, deltaY: deltaY, currentEndIndex: maxIndex, cellHeight: cellHeight)
                         }
                     )
                     .position(x: columnWidth / 2, y: actualY + actualHeight / 2)
@@ -475,40 +471,40 @@ public struct ScheduleGridView: View {
         .frame(width: columnWidth)
     }
 
-    // MARK: - 5. 拖曳上下邊框框選節次邏輯
+    // MARK: - 5. 邊框拖曳上下擴展節次邏輯
 
-    private func commitBottomDrag(course: Course, deltaY: CGFloat, currentEndIndex: Int) {
+    private func commitBottomDrag(course: Course, deltaY: CGFloat, currentEndIndex: Int, cellHeight: CGFloat) {
         draggingBottomCourseId = nil
         dragBottomOffset = 0
 
-        let periodSteps = Int(round(deltaY / settings.gridCellHeight))
-        let newEndIndex = max(0, min(currentEndIndex + periodSteps, settings.periods.count - 1))
+        let periodSteps = Int(round(deltaY / cellHeight))
+        let newEndIndex = max(0, min(currentEndIndex + periodSteps, activePeriods.count - 1))
 
-        if newEndIndex < settings.periods.count {
-            let newEndPeriodId = settings.periods[newEndIndex].id
+        if newEndIndex < activePeriods.count {
+            let newEndPeriodId = activePeriods[newEndIndex].id
             store.updatePeriodRange(courseId: course.id, startPeriodId: course.startPeriodId, endPeriodId: newEndPeriodId)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
     }
 
-    private func commitTopDrag(course: Course, deltaY: CGFloat, currentStartIndex: Int) {
+    private func commitTopDrag(course: Course, deltaY: CGFloat, currentStartIndex: Int, cellHeight: CGFloat) {
         draggingTopCourseId = nil
         dragTopOffset = 0
 
-        let periodSteps = Int(round(deltaY / settings.gridCellHeight))
-        let newStartIndex = max(0, min(currentStartIndex + periodSteps, settings.periods.count - 1))
+        let periodSteps = Int(round(deltaY / cellHeight))
+        let newStartIndex = max(0, min(currentStartIndex + periodSteps, activePeriods.count - 1))
 
-        if newStartIndex < settings.periods.count {
-            let newStartPeriodId = settings.periods[newStartIndex].id
+        if newStartIndex < activePeriods.count {
+            let newStartPeriodId = activePeriods[newStartIndex].id
             store.updatePeriodRange(courseId: course.id, startPeriodId: newStartPeriodId, endPeriodId: course.endPeriodId)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
     }
 
-    // MARK: - 快捷選單動作
+    // MARK: - 快捷切換動作
 
-    private func updateCellHeight(_ height: CGFloat) {
-        store.settings.gridCellHeight = height
+    private func toggleEveningPeriods() {
+        store.settings.showEveningPeriods.toggle()
         store.saveSettings()
     }
 
@@ -518,7 +514,7 @@ public struct ScheduleGridView: View {
     }
 }
 
-// MARK: - 課程卡片組件（支援上下邊框拖曳選格柄）
+// MARK: - 現代高校質感課程卡片（醒目教室膠囊 + 上下拖曳柄）
 
 struct CourseBlockCard: View {
     let course: Course
@@ -533,27 +529,27 @@ struct CourseBlockCard: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 卡片本體按鈕
+            // 卡片本體
             Button(action: onTap) {
                 ZStack(alignment: .topLeading) {
-                    // 背景
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(course.color.opacity(0.18))
+                    // 柔和微透背景
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(course.color.opacity(0.16))
 
-                    // 左側色彩直條
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    // 左側質感色彩指示條
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                         .fill(course.color)
-                        .frame(width: 4)
+                        .frame(width: 3.5)
 
-                    // 內容資訊
+                    // 核心內容文字
                     VStack(alignment: .leading, spacing: 2) {
                         // 課程名稱
                         Text(course.name)
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.primary)
-                            .lineLimit(height > 55 ? 3 : 2)
+                            .lineLimit(height > 50 ? 2 : 1)
 
-                        // 教室地點 (最醒目核心)
+                        // 教室膠囊 (核心醒目標記)
                         HStack(spacing: 2) {
                             Image(systemName: "mappin.circle.fill")
                                 .font(.system(size: 8))
@@ -561,50 +557,50 @@ struct CourseBlockCard: View {
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
                         }
                         .foregroundStyle(course.color)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(course.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                         .lineLimit(1)
 
-                        // 授課教師與學分 (空間充裕時顯示)
-                        if height >= 60 && !course.teacher.isEmpty {
+                        // 授課教師與學分 (卡片高度充裕時自動呈現)
+                        if height >= 58 && !course.teacher.isEmpty {
                             Text(course.teacher)
-                                .font(.system(size: 9))
+                                .font(.system(size: 8.5))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
 
-                        if height >= 85 && !course.credits.isEmpty {
+                        if height >= 78 && !course.credits.isEmpty {
                             Text(course.credits)
                                 .font(.system(size: 8))
                                 .foregroundStyle(.secondary.opacity(0.8))
-                        }
-
-                        if height >= 110 {
-                            Text(course.periodSpanString)
-                                .font(.system(size: 8, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                     }
-                    .padding(.leading, 8)
-                    .padding(.trailing, 3)
-                    .padding(.vertical, 4)
+                    .padding(.leading, 7)
+                    .padding(.trailing, 2)
+                    .padding(.vertical, 3)
                 }
                 .frame(width: width, height: height)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(isSelected ? course.color : course.color.opacity(0.55), lineWidth: isSelected ? 2.0 : 1.0)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(isSelected ? course.color : course.color.opacity(0.45), lineWidth: isSelected ? 2.0 : 0.8)
                 )
+                .clipped()
             }
             .buttonStyle(.plain)
 
-            // MARK: 選中狀態下的上下邊框拖曳調整手柄 (Drag Handles)
+            // MARK: 選中狀態下的上下邊框拖曳手柄 (因為無 ScrollView，拖曳手勢 100% 靈敏)
             if isSelected {
                 VStack {
-                    // 頂部拖曳手柄
+                    // 頂部拖曳把手
                     Capsule()
                         .fill(course.color)
-                        .frame(width: 28, height: 5)
+                        .frame(width: 24, height: 4)
                         .padding(.top, 2)
+                        .contentShape(Rectangle().inset(by: -10))
                         .gesture(
-                            DragGesture(minimumDistance: 4)
+                            DragGesture(minimumDistance: 2)
                                 .onChanged { value in
                                     onTopDragChanged(value.translation.height)
                                 }
@@ -615,13 +611,14 @@ struct CourseBlockCard: View {
 
                     Spacer()
 
-                    // 底部拖曳手柄
+                    // 底部拖曳把手
                     Capsule()
                         .fill(course.color)
-                        .frame(width: 28, height: 5)
+                        .frame(width: 24, height: 4)
                         .padding(.bottom, 2)
+                        .contentShape(Rectangle().inset(by: -10))
                         .gesture(
-                            DragGesture(minimumDistance: 4)
+                            DragGesture(minimumDistance: 2)
                                 .onChanged { value in
                                     onBottomDragChanged(value.translation.height)
                                 }

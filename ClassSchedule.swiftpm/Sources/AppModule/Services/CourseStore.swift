@@ -15,8 +15,7 @@ public final class CourseStore: ObservableObject {
         loadSettings()
         loadCourses()
         if courses.isEmpty {
-            // 預設載入亞洲大學 115 學年度示範課表
-            self.courses = ScheduleParser.asiaUniversitySampleCourses
+            self.courses = ScheduleParser.generalSampleCourses
             save()
         }
     }
@@ -65,29 +64,6 @@ public final class CourseStore: ObservableObject {
             .sorted { a, b in a.startTime < b.startTime }
     }
 
-    /// 檢查某星期與節次是否已有課程起始於此
-    public func courseStartingAt(day: Int, periodId: String) -> Course? {
-        courses.first { course in
-            course.dayOfWeek == day && course.startPeriodId == periodId
-        }
-    }
-
-    /// 檢查某星期與節次是否被某門課程涵蓋（包含連堂跨節）
-    public func courseCovering(day: Int, periodId: String) -> Course? {
-        guard let targetIndex = settings.indexOfPeriod(id: periodId) else { return nil }
-
-        return courses.first { course in
-            guard course.dayOfWeek == day,
-                  let startIndex = settings.indexOfPeriod(id: course.startPeriodId),
-                  let endIndex = settings.indexOfPeriod(id: course.endPeriodId) else {
-                return false
-            }
-            let minIndex = min(startIndex, endIndex)
-            let maxIndex = max(startIndex, endIndex)
-            return targetIndex >= minIndex && targetIndex <= maxIndex
-        }
-    }
-
     // MARK: - 手勢拖曳調整節次跨度 (Drag to Resize)
 
     public func updatePeriodRange(courseId: UUID, startPeriodId: String, endPeriodId: String) {
@@ -95,7 +71,6 @@ public final class CourseStore: ObservableObject {
         guard let startPeriod = settings.period(for: startPeriodId),
               let endPeriod = settings.period(for: endPeriodId) else { return }
 
-        // 確保起始與結束順序正確
         let startIndex = settings.indexOfPeriod(id: startPeriodId) ?? 0
         let endIndex = settings.indexOfPeriod(id: endPeriodId) ?? 0
 
@@ -125,12 +100,18 @@ public final class CourseStore: ObservableObject {
                 self.settings.showWeekend = true
             }
 
-            // 檢查是否包含夜間 10 節以後的課
+            // 檢查是否包含晨間 M 節
+            let hasMorning = newCourses.contains { $0.startPeriodId == "M" }
+            if hasMorning {
+                self.settings.showMorningM = true
+            }
+
+            // 檢查是否包含夜間時段
             let hasEvening = newCourses.contains { course in
-                ["10", "11", "12", "13", "14"].contains(course.endPeriodId)
+                ["R", "10", "11", "12", "13", "14"].contains(course.endPeriodId)
             }
             if hasEvening {
-                self.settings.gridCellHeight = 54.0 // 課程節數多時適度縮小格子以利全覽
+                self.settings.showEveningPeriods = true
             }
             saveSettings()
         }
