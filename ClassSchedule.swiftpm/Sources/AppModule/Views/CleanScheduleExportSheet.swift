@@ -248,7 +248,7 @@ public struct CleanScheduleCanvasView: View {
 
                 Text("ClassSchedule")
                     .font(.system(size: 13, weight: .black, design: .monospaced))
-                    .foregroundStyle(theme == .dark ? Color.white.opacity(0.35) : Color.tertiary)
+                    .foregroundStyle(theme == .dark ? Color.white.opacity(0.35) : Color(uiColor: .tertiaryLabel))
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
@@ -290,7 +290,7 @@ public struct CleanScheduleCanvasView: View {
 
                             Text(period.endTime.formatted)
                                 .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(theme == .dark ? Color.white.opacity(0.4) : Color.tertiary)
+                                .foregroundStyle(theme == .dark ? Color.white.opacity(0.4) : Color(uiColor: .tertiaryLabel))
                         }
                         .frame(width: 80)
                         .frame(maxHeight: .infinity)
