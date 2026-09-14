@@ -47,5 +47,6 @@ jobs:
         run: |
           gh release create v1.0.0 ClassSchedule.swiftpm/ClassSchedule.ipa \
             --title "ClassSchedule iOS App (v1.0.0)" \
-            --notes "課表 iOS 原生應用程式安裝包 (IPA)。下載後可直接使用本機自簽工具（如輕鬆簽、牛蛙助手、TrollStore、AltStore、Scarlet 等）完成簽名安裝至 iPhone 或 iPad。" \
-            --clobber || true
+            --notes "課表 iOS 原生應用程式安裝包 (IPA)。下載後可直接使用本機自簽工具（如輕鬆簽、牛蛙助手、TrollStore、AltStore、Scarlet 等）完成簽名安裝至 iPhone 或 iPad。" || \
+          gh release upload v1.0.0 ClassSchedule.swiftpm/ClassSchedule.ipa --clobber
+
