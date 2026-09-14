@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 /// 桌面小工具（WidgetKit）偏好設定與即時 Live 預覽中心
 public struct WidgetSettingsView: View {
