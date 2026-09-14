@@ -93,115 +93,7 @@ public struct ScheduleGridView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // MARK: 頂部中央 Apple 原生分頁器 (課表 | 小工具設定)
-                ToolbarItem(placement: .principal) {
-                    Picker("主要頁面分頁", selection: $selectedTab) {
-                        ForEach(AppMainTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: isPad ? 260 : 185)
-                }
-
-                // 左上角選單按鈕（Apple 原生單層液態玻璃圓形按鈕）
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Menu {
-                        Button {
-                            showingSettingsSheet = true
-                        } label: {
-                            Label("課表自訂設定", systemImage: "gearshape")
-                        }
-
-                        Button {
-                            toggleEveningPeriods()
-                        } label: {
-                            Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
-                        }
-
-                        Button {
-                            toggleWeekend()
-                        } label: {
-                            Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
-                        }
-
-                        Menu {
-                            Button {
-                                setAppearanceMode(.light)
-                            } label: {
-                                Label("淺色模式", systemImage: settings.appearanceMode == .light ? "checkmark" : "sun.max")
-                            }
-
-                            Button {
-                                setAppearanceMode(.dark)
-                            } label: {
-                                Label("深色模式", systemImage: settings.appearanceMode == .dark ? "checkmark" : "moon.fill")
-                            }
-
-                            Button {
-                                setAppearanceMode(.system)
-                            } label: {
-                                Label("跟隨系統", systemImage: settings.appearanceMode == .system ? "checkmark" : "circle.lefthalf.filled")
-                            }
-                        } label: {
-                            Label("外觀模式: \(settings.appearanceMode.rawValue)", systemImage: settings.appearanceMode == .dark ? "moon.fill" : (settings.appearanceMode == .light ? "sun.max" : "circle.lefthalf.filled"))
-                        }
-
-                        Button {
-                            showingExportSheet = true
-                        } label: {
-                            Label("儲存課表圖片", systemImage: "square.and.arrow.down")
-                        }
-
-                        Button {
-                            Task {
-                                await updateService.checkForUpdates(silent: false)
-                            }
-                        } label: {
-                            Label("檢查版本更新", systemImage: "arrow.triangle.2.circlepath")
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive) {
-                            showingClearAlert = true
-                        } label: {
-                            Label("清空目前課表", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.circle)
-                }
-
-                // MARK: 右上角 Apple 原生工具列按鈕（Apple 原生單層液態玻璃圓形按鈕）
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 12) {
-                        if selectedTab == .schedule {
-                            Button {
-                                showingImportSheet = true
-                            } label: {
-                                Image(systemName: "arrow.down.doc")
-                                    .font(.system(size: 14.5, weight: .semibold))
-                            }
-                            .buttonStyle(.bordered)
-                            .buttonBorderShape(.circle)
-                            .accessibilityLabel("匯入課表")
-
-                            Button {
-                                courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
-                            } label: {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 15, weight: .bold))
-                            }
-                            .buttonStyle(.bordered)
-                            .buttonBorderShape(.circle)
-                            .accessibilityLabel("新增課程")
-                        }
-                    }
-                }
+                mainToolbarContent
             }
             .sheet(item: Binding<Course?>(
                 get: { courseToEdit },
@@ -296,6 +188,115 @@ public struct ScheduleGridView: View {
                     .coordinateSpace(name: "ScheduleGridSpace")
                 } else {
                     Color.clear
+                }
+            }
+        }
+    }
+
+    // MARK: - 主畫面 Apple 原生工具列內容
+
+    @ToolbarContentBuilder
+    private var mainToolbarContent: some ToolbarContent {
+        // MARK: 頂部中央 Apple 原生分頁器 (課表 | 小工具設定)
+        ToolbarItem(placement: .principal) {
+            Picker("主要頁面分頁", selection: $selectedTab) {
+                ForEach(AppMainTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: isPad ? 260 : 185)
+        }
+
+        // 左上角選單按鈕（課表自訂設定、外觀模式、匯出與清空）
+        ToolbarItem(placement: .navigationBarLeading) {
+            Menu {
+                Button {
+                    showingSettingsSheet = true
+                } label: {
+                    Label("課表自訂設定", systemImage: "gearshape")
+                }
+
+                Button {
+                    toggleEveningPeriods()
+                } label: {
+                    Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
+                }
+
+                Button {
+                    toggleWeekend()
+                } label: {
+                    Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
+                }
+
+                Menu {
+                    Button {
+                        setAppearanceMode(.light)
+                    } label: {
+                        Label("淺色模式", systemImage: settings.appearanceMode == .light ? "checkmark" : "sun.max")
+                    }
+
+                    Button {
+                        setAppearanceMode(.dark)
+                    } label: {
+                        Label("深色模式", systemImage: settings.appearanceMode == .dark ? "checkmark" : "moon.fill")
+                    }
+
+                    Button {
+                        setAppearanceMode(.system)
+                    } label: {
+                        Label("跟隨系統", systemImage: settings.appearanceMode == .system ? "checkmark" : "circle.lefthalf.filled")
+                    }
+                } label: {
+                    Label("外觀模式: \(settings.appearanceMode.rawValue)", systemImage: settings.appearanceMode == .dark ? "moon.fill" : (settings.appearanceMode == .light ? "sun.max" : "circle.lefthalf.filled"))
+                }
+
+                Button {
+                    showingExportSheet = true
+                } label: {
+                    Label("儲存課表圖片", systemImage: "square.and.arrow.down")
+                }
+
+                Button {
+                    Task {
+                        await updateService.checkForUpdates(silent: false)
+                    }
+                } label: {
+                    Label("檢查版本更新", systemImage: "arrow.triangle.2.circlepath")
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    showingClearAlert = true
+                } label: {
+                    Label("清空目前課表", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+        }
+
+        // MARK: 右上角 Apple 原生工具列按鈕（匯入課表、新增課程）
+        ToolbarItem(placement: .navigationBarTrailing) {
+            if selectedTab == .schedule {
+                HStack(spacing: 12) {
+                    Button {
+                        showingImportSheet = true
+                    } label: {
+                        Image(systemName: "arrow.down.doc")
+                            .font(.system(size: 14.5, weight: .semibold))
+                    }
+                    .accessibilityLabel("匯入課表")
+
+                    Button {
+                        courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .accessibilityLabel("新增課程")
                 }
             }
         }
