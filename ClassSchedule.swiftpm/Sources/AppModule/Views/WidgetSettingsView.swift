@@ -16,25 +16,29 @@ public struct WidgetSettingsView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 // MARK: 1. 即時桌面小工具 Live 預覽區塊
                 widgetLivePreviewSection
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.top, 10)
 
-                // MARK: 2. 顯示模式切換
+                // MARK: 2. 一鍵情境預設卡片 (操作極簡升級)
+                quickPresetsSection
+                    .padding(.horizontal, 16)
+
+                // MARK: 3. 顯示模式切換
                 displayModeSection
                     .padding(.horizontal, 16)
 
-                // MARK: 3. 外觀主題配色
+                // MARK: 4. 外觀主題配色
                 themeSection
                     .padding(.horizontal, 16)
 
-                // MARK: 4. 顯示項目開關組
+                // MARK: 5. 顯示項目開關組
                 contentOptionsSection
                     .padding(.horizontal, 16)
 
-                // MARK: 5. 桌面小工具安裝指南
+                // MARK: 6. 桌面小工具安裝指南
                 tutorialSection
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
@@ -556,7 +560,140 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 2. 顯示模式切換區塊
+    // MARK: - 2. 一鍵情境預設卡片 (操作極簡升級)
+
+    private var quickPresetsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("一鍵情境預設", systemImage: "wand.and.stars")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    applyDefaultSettings()
+                } label: {
+                    Text("恢復預設")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    presetCard(
+                        title: "趕堂換教室",
+                        subtitle: "特大教室代號 · 30分提醒",
+                        icon: "mappin.and.ellipse",
+                        color: .orange,
+                        isActive: settings.displayMode == .classroomFocus && settings.highlightClassroom
+                    ) {
+                        applyPreset(.classroomFocus, theme: .softGradient, highlight: true, teacher: false, time: true, reminder: 30)
+                    }
+
+                    presetCard(
+                        title: "全日程管家",
+                        subtitle: "完整節次時段 · 課程教師",
+                        icon: "list.bullet.rectangle",
+                        color: .blue,
+                        isActive: settings.displayMode == .dailyTimeline
+                    ) {
+                        applyPreset(.dailyTimeline, theme: .courseColor, highlight: false, teacher: true, time: true, reminder: 15)
+                    }
+
+                    presetCard(
+                        title: "極簡專注",
+                        subtitle: "純黑極簡 · 簡約倒數",
+                        icon: "timer",
+                        color: .purple,
+                        isActive: settings.displayMode == .countdown && settings.theme == .darkOLED
+                    ) {
+                        applyPreset(.countdown, theme: .darkOLED, highlight: true, teacher: false, time: false, reminder: 30)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private func presetCard(
+        title: String,
+        subtitle: String,
+        icon: String,
+        color: Color,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(color.opacity(0.18))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: icon)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(color)
+                    }
+
+                    Spacer()
+
+                    if isActive {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.blue)
+                    }
+                }
+
+                Text(title)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(12)
+            .frame(width: 150, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isActive ? Color.blue.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isActive ? Color.blue.opacity(0.35) : Color.primary.opacity(0.06), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyPreset(
+        _ mode: WidgetDisplayMode,
+        theme: WidgetTheme,
+        highlight: Bool,
+        teacher: Bool,
+        time: Bool,
+        reminder: Int
+    ) {
+        var updated = settings
+        updated.displayMode = mode
+        updated.theme = theme
+        updated.highlightClassroom = highlight
+        updated.showTeacher = teacher
+        updated.showPeriodTime = time
+        updated.upcomingReminderMinutes = reminder
+        store.updateWidgetSettings(updated)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    private func applyDefaultSettings() {
+        store.updateWidgetSettings(WidgetSettings())
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    // MARK: - 3. 顯示模式切換區塊
 
     private var displayModeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -570,6 +707,7 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.displayMode = mode
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: mode.iconName)
@@ -602,7 +740,7 @@ public struct WidgetSettingsView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(settings.displayMode == mode ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                                .stroke(settings.displayMode == mode ? Color.blue.opacity(0.35) : Color.primary.opacity(0.06), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -611,7 +749,7 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 3. 外觀主題配色
+    // MARK: - 4. 外觀主題配色
 
     private var themeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -625,14 +763,15 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.theme = theme
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
                             Circle()
                                 .fill(themeColorPreview(theme))
                                 .frame(width: 14, height: 14)
 
                             Text(theme.rawValue)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(.primary)
 
                             Spacer()
@@ -644,14 +783,14 @@ public struct WidgetSettingsView: View {
                             }
                         }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 11)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(settings.theme == theme ? Color.blue.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(settings.theme == theme ? Color.blue : Color.clear, lineWidth: 1.5)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(settings.theme == theme ? Color.blue.opacity(0.35) : Color.primary.opacity(0.06), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -669,14 +808,15 @@ public struct WidgetSettingsView: View {
         }
     }
 
-    // MARK: - 4. 顯示項目自訂開關
+    // MARK: - 5. 顯示項目與提醒開關組 (Inset Grouped)
 
     private var contentOptionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("小工具顯示內容")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(.secondary)
 
+            // 課程與教室資訊開關
             VStack(spacing: 0) {
                 Toggle(isOn: Binding(
                     get: { settings.showClassroom },
@@ -684,6 +824,7 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.showClassroom = val
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
                     Label("顯示教室位置", systemImage: "mappin.circle")
@@ -699,10 +840,13 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.highlightClassroom = val
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
                     Label("教室代號特大加粗 (例如: M008)", systemImage: "textformat.size.larger")
                 }
+                .disabled(!settings.showClassroom)
+                .opacity(settings.showClassroom ? 1.0 : 0.45)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
 
@@ -714,6 +858,7 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.showTeacher = val
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
                     Label("顯示授課教師姓名", systemImage: "person.text.rectangle")
@@ -729,6 +874,7 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.showPeriodTime = val
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
                     Label("顯示上課節次與時段", systemImage: "clock")
@@ -744,12 +890,42 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.showCredits = val
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
                     Label("顯示學分數", systemImage: "rosette")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+
+            // 提醒與提示卡片
+            VStack(spacing: 0) {
+                HStack {
+                    Label("上課倒數提醒門檻", systemImage: "bell.badge")
+                    Spacer()
+                    Picker("倒數提醒門檻", selection: Binding(
+                        get: { settings.upcomingReminderMinutes },
+                        set: { val in
+                            var updated = settings
+                            updated.upcomingReminderMinutes = val
+                            store.updateWidgetSettings(updated)
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        }
+                    )) {
+                        Text("15 分鐘前").tag(15)
+                        Text("30 分鐘前").tag(30)
+                        Text("45 分鐘前").tag(45)
+                        Text("60 分鐘前").tag(60)
+                    }
+                    .pickerStyle(.menu)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
 
                 Divider().padding(.leading, 44)
 
@@ -759,6 +935,7 @@ public struct WidgetSettingsView: View {
                         var updated = settings
                         updated.showInspirationalQuote = val
                         store.updateWidgetSettings(updated)
+                        UISelectionFeedbackGenerator().selectionChanged()
                     }
                 )) {
                     Label("無課時顯示貼心提示語", systemImage: "quote.bubble")

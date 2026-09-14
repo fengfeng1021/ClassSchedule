@@ -68,99 +68,112 @@ public struct ScheduleGridView: View {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
 
         NavigationStack {
-            ZStack {
-                scheduleMatrixContentView
-                    .opacity(selectedTab == .schedule ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .schedule)
-
-                if selectedTab == .widgetSettings {
-                    WidgetSettingsView(store: store)
-                        .transition(.opacity)
-                }
-            }
-            .animation(.easeInOut(duration: 0.22), value: selectedTab)
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // MARK: 頂部置中原生分頁切換 [ 課表 | 小工具設定 ] (iPhone 上適配為 160pt 避免兩側擁擠)
-                ToolbarItem(placement: .principal) {
+            VStack(spacing: 0) {
+                // iPhone 專屬子分頁列（徹底杜絕導航列空間擠壓碰撞）
+                if !isPad {
                     Picker("主要頁面分頁", selection: $selectedTab) {
                         ForEach(AppMainTab.allCases) { tab in
                             Text(tab.rawValue).tag(tab)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: isPad ? 220 : 160)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 6)
+                    .background(Color(uiColor: .systemGroupedBackground))
                 }
 
-                // MARK: 左上角功能選項選單按鈕 (課表頁面專屬)
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Menu {
-                        Button {
-                            showingSettingsSheet = true
-                        } label: {
-                            Label("課表自訂設定", systemImage: "gearshape")
-                        }
+                ZStack {
+                    scheduleMatrixContentView
+                        .opacity(selectedTab == .schedule ? 1 : 0)
+                        .allowsHitTesting(selectedTab == .schedule)
 
-                        Button {
-                            toggleEveningPeriods()
-                        } label: {
-                            Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
-                        }
-
-                        Button {
-                            toggleWeekend()
-                        } label: {
-                            Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive) {
-                            showingClearAlert = true
-                        } label: {
-                            Label("清空目前課表", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 18, weight: .medium))
+                    if selectedTab == .widgetSettings {
+                        WidgetSettingsView(store: store)
+                            .transition(.opacity)
                     }
-                    .opacity(selectedTab == .schedule ? 1 : 0)
-                    .disabled(selectedTab != .schedule)
                 }
-
-                // MARK: 右上角兩個獨立分開的按鈕：「匯入課表」與「新增課程」
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: isPad ? 14 : 10) {
-                        // 按鈕一：匯入課表 (iPad 顯示文字圖示，iPhone 顯示精簡純圖示以防止按鈕重疊)
-                        Button {
-                            showingImportSheet = true
-                        } label: {
-                            if isPad {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "arrow.down.doc")
-                                    Text("匯入課表")
-                                        .font(.subheadline.weight(.medium))
-                                }
-                            } else {
-                                Image(systemName: "arrow.down.doc")
-                                    .font(.system(size: 16, weight: .medium))
+            }
+            .animation(.easeInOut(duration: 0.22), value: selectedTab)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle(isPad ? "" : (selectedTab == .schedule ? "我的課表" : "小工具設定"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // iPad 專屬置中主分頁列 (iPad 螢幕空間充裕無擠壓)
+                if isPad {
+                    ToolbarItem(placement: .principal) {
+                        Picker("主要頁面分頁", selection: $selectedTab) {
+                            ForEach(AppMainTab.allCases) { tab in
+                                Text(tab.rawValue).tag(tab)
                             }
                         }
-                        .accessibilityLabel("匯入課表")
-
-                        // 按鈕二：新增課程
-                        Button {
-                            courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .accessibilityLabel("新增課程")
+                        .pickerStyle(.segmented)
+                        .frame(width: 220)
                     }
-                    .opacity(selectedTab == .schedule ? 1 : 0)
-                    .disabled(selectedTab != .schedule)
+                }
+
+                // 課表頁面專屬功能按鈕（切換至小工具設定時徹底卸載，不佔位）
+                if selectedTab == .schedule {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Menu {
+                            Button {
+                                showingSettingsSheet = true
+                            } label: {
+                                Label("課表自訂設定", systemImage: "gearshape")
+                            }
+
+                            Button {
+                                toggleEveningPeriods()
+                            } label: {
+                                Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
+                            }
+
+                            Button {
+                                toggleWeekend()
+                            } label: {
+                                Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
+                            }
+
+                            Divider()
+
+                            Button(role: .destructive) {
+                                showingClearAlert = true
+                            } label: {
+                                Label("清空目前課表", systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 18, weight: .medium))
+                        }
+                    }
+
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack(spacing: isPad ? 14 : 10) {
+                            Button {
+                                showingImportSheet = true
+                            } label: {
+                                if isPad {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "arrow.down.doc")
+                                        Text("匯入課表")
+                                            .font(.subheadline.weight(.medium))
+                                    }
+                                } else {
+                                    Image(systemName: "arrow.down.doc")
+                                        .font(.system(size: 16, weight: .medium))
+                                }
+                            }
+                            .accessibilityLabel("匯入課表")
+
+                            Button {
+                                courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                            .accessibilityLabel("新增課程")
+                        }
+                    }
                 }
             }
             .sheet(item: Binding<Course?>(
@@ -590,10 +603,10 @@ public struct ScheduleGridView: View {
 
         if newEndIndex < activePeriods.count {
             let newEndPeriodId = activePeriods[newEndIndex].id
-            let startIndex = settings.indexOfPeriod(id: course.startPeriodId) ?? 0
+            guard let activeStartIndex = settings.activeIndexOfPeriod(id: course.startPeriodId) else { return }
 
-            // 必須保證起訖順序合法且不碰撞
-            if startIndex <= newEndIndex {
+            // 必須保證起訖順序合法且不碰撞 (同處於 activePeriods 活躍節次座標空間)
+            if activeStartIndex <= newEndIndex {
                 if store.hasPeriodOverlap(dayOfWeek: course.dayOfWeek, startPeriodId: course.startPeriodId, endPeriodId: newEndPeriodId, excludingCourseId: course.id) {
                     UINotificationFeedbackGenerator().notificationOccurred(.warning)
                     return
@@ -617,10 +630,10 @@ public struct ScheduleGridView: View {
 
         if newStartIndex < activePeriods.count {
             let newStartPeriodId = activePeriods[newStartIndex].id
-            let endIndex = settings.indexOfPeriod(id: course.endPeriodId) ?? (activePeriods.count - 1)
+            guard let activeEndIndex = settings.activeIndexOfPeriod(id: course.endPeriodId) else { return }
 
-            // 必須保證起訖順序合法且不碰撞
-            if newStartIndex <= endIndex {
+            // 必須保證起訖順序合法且不碰撞 (同處於 activePeriods 活躍節次座標空間)
+            if newStartIndex <= activeEndIndex {
                 if store.hasPeriodOverlap(dayOfWeek: course.dayOfWeek, startPeriodId: newStartPeriodId, endPeriodId: course.endPeriodId, excludingCourseId: course.id) {
                     UINotificationFeedbackGenerator().notificationOccurred(.warning)
                     return
@@ -801,7 +814,7 @@ struct CourseBlockCard: View {
                             .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
                         Spacer()
                     }
-                    .frame(height: 18)
+                    .frame(height: isCompact ? 10 : 14)
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 1, coordinateSpace: .named("ScheduleGridSpace"))
@@ -820,11 +833,11 @@ struct CourseBlockCard: View {
                         Spacer()
                         Capsule()
                             .fill(course.color)
-                            .frame(width: max(22 * widthScale, 20), height: 4.5)
+                            .frame(width: max(22 * widthScale, 20), height: 4.0)
                             .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
                         Spacer()
                     }
-                    .frame(height: 18)
+                    .frame(height: isCompact ? 10 : 14)
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 1, coordinateSpace: .named("ScheduleGridSpace"))
@@ -836,18 +849,18 @@ struct CourseBlockCard: View {
                             }
                     )
                 }
-                .frame(width: width, height: height)
+                .frame(width: safeWidth, height: safeHeight)
             }
         }
     }
 
-    // MARK: - 單節課（緊湊模式）專屬排版：雙行全景佈局，長課名、教室、教師與學分 100% 完整顯示
+    // MARK: - 單節課（緊湊模式）專屬排版：雙行全景佈局，長課名與醒目教室膠囊 100% 完整顯示絕不截斷
 
     private var compactContentLayout: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 1.5) {
             Spacer(minLength: 0)
 
-            // 行 1: 課程名稱（支援雙行換行與縮小係數 0.65，長課名絕不被省略截斷）
+            // 行 1: 課程名稱（自適應大字、極粗圓潤，最多 2 行，縮小係數 0.65，長課名完美自動居中排版）
             Text(course.name)
                 .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
                 .foregroundStyle(.primary)
@@ -856,47 +869,42 @@ struct CourseBlockCard: View {
                 .minimumScaleFactor(0.65)
                 .padding(.horizontal, 2)
 
-            // 行 2: 橫向一體化緊湊標籤：📍 教室 · 教師 · 學分
-            HStack(spacing: 2) {
-                if !course.classroom.isEmpty {
+            // 行 2: 獨立高對比教室膠囊（優先展示教室地點，若無教室則展示教師）
+            if !course.classroom.isEmpty {
+                HStack(spacing: 2) {
                     Image(systemName: "location.fill")
-                        .font(.system(size: metaFontSize * 0.72, weight: .bold))
+                        .font(.system(size: classroomFontSize * 0.72, weight: .bold))
                     Text(course.classroom)
-                        .font(.system(size: metaFontSize, weight: .black, design: .rounded))
+                        .font(.system(size: classroomFontSize * 0.95, weight: .black, design: .rounded))
                 }
-
-                if !course.teacher.isEmpty {
-                    if !course.classroom.isEmpty {
-                        Text("·")
-                            .font(.system(size: metaFontSize * 0.8, weight: .bold))
-                            .foregroundStyle(.secondary.opacity(0.6))
-                    }
-                    Text(course.teacher)
-                        .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                }
-
-                if !course.credits.isEmpty {
-                    Text("·")
-                        .font(.system(size: metaFontSize * 0.8, weight: .bold))
-                        .foregroundStyle(.secondary.opacity(0.6))
-                    Text(course.credits)
-                        .font(.system(size: metaFontSize * 0.95, weight: .bold, design: .rounded))
-                        .foregroundStyle(.secondary.opacity(0.9))
-                }
+                .foregroundStyle(course.color)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(
+                    Capsule()
+                        .fill(course.color.opacity(0.20))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(course.color.opacity(0.35), lineWidth: 0.5)
+                )
+                .lineLimit(1)
+                .minimumScaleFactor(0.70)
+            } else if !course.teacher.isEmpty {
+                Text(course.teacher)
+                    .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.70)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.primary.opacity(0.06)))
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.68)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1.5)
-            .background(
-                Capsule()
-                    .fill(course.color.opacity(0.16))
-            )
 
             Spacer(minLength: 0)
         }
-        .padding(2.5)
+        .padding(.horizontal, 2)
+        .padding(.vertical, 2)
     }
 
     // MARK: - 多節課（標準模式）排版：三行式現代大氣美學
