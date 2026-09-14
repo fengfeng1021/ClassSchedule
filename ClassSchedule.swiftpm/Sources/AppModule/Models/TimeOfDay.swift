@@ -1,6 +1,6 @@
 import Foundation
 
-/// 结构化一天中的具体时间点 (小时:分钟)
+/// 結構化一天中的具體時間點 (小時:分鐘)
 public struct TimeOfDay: Codable, Hashable, Comparable, Identifiable {
     public var id: String { formatted }
 
@@ -18,7 +18,7 @@ public struct TimeOfDay: Codable, Hashable, Comparable, Identifiable {
         self.minute = components.minute ?? 0
     }
 
-    /// 转换为今日的具体 Date
+    /// 轉換為今日的具體 Date
     public func toDate(baseDate: Date = Date(), calendar: Calendar = .current) -> Date {
         var components = calendar.dateComponents([.year, .month, .day], from: baseDate)
         components.hour = self.hour
@@ -27,12 +27,12 @@ public struct TimeOfDay: Codable, Hashable, Comparable, Identifiable {
         return calendar.date(from: components) ?? baseDate
     }
 
-    /// 格式化为 "HH:mm" (如 "08:30")
+    /// 格式化為 "HH:mm" (如 "08:30")
     public var formatted: String {
         String(format: "%02d:%02d", hour, minute)
     }
 
-    /// 总分钟数，用于快速比较
+    /// 總分鐘數，用於快速比較
     public var totalMinutes: Int {
         hour * 60 + minute
     }

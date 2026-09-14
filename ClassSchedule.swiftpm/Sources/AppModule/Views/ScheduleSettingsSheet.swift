@@ -1,28 +1,31 @@
 import SwiftUI
 
-/// 课表时间轴与排课设置弹窗
+/// 課表節次與檢視設定彈窗（全正體中文）
 public struct ScheduleSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: CourseStore
 
-    @State private var startHour: Int = 8
-    @State private var endHour: Int = 21
     @State private var showWeekend: Bool = false
-    @State private var hourHeightPreset: HourHeightPreset = .standard
+    @State private var cellHeightPreset: CellHeightPreset = .standard
+    @State private var showCredits: Bool = true
+    @State private var showTeacher: Bool = true
     @State private var showingClearAlert = false
+    @State private var showingResetAlert = false
 
-    enum HourHeightPreset: CGFloat, CaseIterable, Identifiable {
+    enum CellHeightPreset: CGFloat, CaseIterable, Identifiable {
         case compact = 52.0
-        case standard = 64.0
-        case spacious = 78.0
+        case standard = 65.0
+        case spacious = 80.0
+        case extraSpacious = 96.0
 
         var id: CGFloat { rawValue }
 
         var title: String {
             switch self {
-            case .compact: return "紧凑"
-            case .standard: return "标准"
-            case .spacious: return "宽阔"
+            case .compact: return "緊湊"
+            case .standard: return "標準"
+            case .spacious: return "寬敞"
+            case .extraSpacious: return "超大"
             }
         }
     }
@@ -34,61 +37,75 @@ public struct ScheduleSettingsSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
-                // MARK: 1. 时间轴跨度
+                // MARK: 1. 格子尺寸比例
                 Section {
-                    Picker("最早起始时间", selection: $startHour) {
-                        ForEach(6...10, id: \.self) { hour in
-                            Text(String(format: "%02d:00", hour)).tag(hour)
-                        }
-                    }
-
-                    Picker("最晚结束时间", selection: $endHour) {
-                        ForEach(18...23, id: \.self) { hour in
-                            Text(String(format: "%02d:00", hour)).tag(hour)
-                        }
-                    }
-                } header: {
-                    Text("时间轴跨度")
-                } footer: {
-                    Text("根据你所在学校的最早晨课与最晚晚自习时间灵活调整，时间轴将精确展示该区间内的所有课程。")
-                }
-
-                // MARK: 2. 周末显示
-                Section {
-                    Toggle("显示周末 (周六与周日)", isOn: $showWeekend)
-                } header: {
-                    Text("视图范围")
-                } footer: {
-                    Text(showWeekend ? "当前显示周一至周日全周 7 天课表。" : "关闭后仅显示周一至周五 5 天课表，在 iPad 上每一列将更宽阔方正。")
-                }
-
-                // MARK: 3. 网格行高比例
-                Section("网格行高比例") {
-                    Picker("行高比例", selection: $hourHeightPreset) {
-                        ForEach(HourHeightPreset.allCases) { preset in
+                    Picker("格子高度", selection: $cellHeightPreset) {
+                        ForEach(CellHeightPreset.allCases) { preset in
                             Text(preset.title).tag(preset)
                         }
                     }
                     .pickerStyle(.segmented)
+                } header: {
+                    Text("格子尺寸縮放")
+                } footer: {
+                    Text("可依據個人喜好與螢幕大小自由調節每節課的高度比例。")
                 }
 
-                // MARK: 4. 统计与维护
-                Section("数据维护") {
+                // MARK: 2. 檢視範圍
+                Section {
+                    Toggle("顯示週末 (週六與週日)", isOn: $showWeekend)
+                } header: {
+                    Text("課表檢視範圍")
+                } footer: {
+                    Text(showWeekend ? "目前呈現週一至週日全週 7 天課表。" : "關閉後僅呈現週一至週五 5 天課表，在 iPad 螢幕上每一天的格子更加寬闊方正。")
+                }
+
+                // MARK: 3. 卡片呈現設定
+                Section("卡片內容顯示") {
+                    Toggle("顯示學分數", isOn: $showCredits)
+                    Toggle("顯示授課教師", isOn: $showTeacher)
+                }
+
+                // MARK: 4. 節次資訊
+                Section("節次配置架構") {
                     HStack {
-                        Text("当前已录入课程")
+                        Text("節次排程標準")
                         Spacer()
-                        Text("\(store.courses.count) 门")
+                        Text("亞洲大學 / 大專標準 14 節")
                             .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("總計節次數")
+                        Spacer()
+                        Text("\(store.settings.periods.count) 節")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // MARK: 5. 資料維護
+                Section("資料維護與重設") {
+                    HStack {
+                        Text("目前已排入課程")
+                        Spacer()
+                        Text("\(store.courses.count) 門課程")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        showingResetAlert = true
+                    } label: {
+                        Text("恢復載入亞洲大學示範課表")
                     }
 
                     Button(role: .destructive) {
                         showingClearAlert = true
                     } label: {
-                        Text("清空所有课程数据")
+                        Text("清空目前所有課程")
                     }
                 }
             }
-            .navigationTitle("课表设置")
+            .navigationTitle("課表設定")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -98,34 +115,42 @@ public struct ScheduleSettingsSheet: View {
                     .fontWeight(.semibold)
                 }
             }
-            .alert("确认清空所有课程？", isPresented: $showingClearAlert) {
+            .alert("確定恢復亞洲大學示範課表？", isPresented: $showingResetAlert) {
+                Button("取消", role: .cancel) {}
+                Button("確定載入") {
+                    store.importCourses(ScheduleParser.asiaUniversitySampleCourses, autoAdjustSettings: true)
+                    dismiss()
+                }
+            } message: {
+                Text("這將載入汪俊鋒同學亞洲大學 115 學年度的 29 學分完整課表資料。")
+            }
+            .alert("確認清空所有課程？", isPresented: $showingClearAlert) {
                 Button("取消", role: .cancel) {}
                 Button("清空", role: .destructive) {
                     store.courses.removeAll()
                     store.save()
+                    dismiss()
                 }
             } message: {
-                Text("此操作不可撤销，已录入的课程将全部删除。")
+                Text("此動作不可撤銷，已排入的課程資料將全數移除。")
             }
             .onAppear {
-                self.startHour = store.settings.startHour
-                self.endHour = store.settings.endHour
                 self.showWeekend = store.settings.showWeekend
-                if let matched = HourHeightPreset.allCases.first(where: { abs($0.rawValue - store.settings.hourHeight) < 5 }) {
-                    self.hourHeightPreset = matched
+                self.showCredits = store.settings.showCredits
+                self.showTeacher = store.settings.showTeacher
+                if let matched = CellHeightPreset.allCases.first(where: { abs($0.rawValue - store.settings.gridCellHeight) < 4 }) {
+                    self.cellHeightPreset = matched
                 }
             }
         }
     }
 
     private func saveAndDismiss() {
-        let finalEnd = max(startHour + 4, endHour)
-        let newSettings = ScheduleSettings(
-            startHour: startHour,
-            endHour: finalEnd,
-            showWeekend: showWeekend,
-            hourHeight: hourHeightPreset.rawValue
-        )
+        var newSettings = store.settings
+        newSettings.showWeekend = showWeekend
+        newSettings.gridCellHeight = cellHeightPreset.rawValue
+        newSettings.showCredits = showCredits
+        newSettings.showTeacher = showTeacher
         store.updateSettings(newSettings)
         dismiss()
     }

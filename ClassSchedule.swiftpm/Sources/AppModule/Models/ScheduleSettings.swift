@@ -1,36 +1,49 @@
 import Foundation
 import SwiftUI
 
-/// 课表时间轴与视图自定义设置
+/// 課表節次矩陣與視圖自訂設定（全正體中文）
 public struct ScheduleSettings: Codable, Equatable {
-    /// 每日最早起始小时 (0-23，默认 8:00)
-    public var startHour: Int
-    /// 每日最晚结束小时 (0-23，默认 21:00)
-    public var endHour: Int
-    /// 是否显示周末 (周六与周日，默认 false 仅显示周一至周五以获得更方正的列宽)
+    /// 包含的所有節次列表（依序排列，預設使用亞洲大學標準節次）
+    public var periods: [Period]
+
+    /// 是否顯示週末 (週六與週日，預設 false 僅顯示週一至週五)
     public var showWeekend: Bool
-    /// 每小时在网格中的高度像素点 (默认 64.0)
-    public var hourHeight: CGFloat
+
+    /// 每一節格子在網格中的高度像素 (預設 65.0，可自由快捷縮放)
+    public var gridCellHeight: CGFloat
+
+    /// 是否在格子內顯示學分數
+    public var showCredits: Bool
+
+    /// 是否在格子內顯示授課教師
+    public var showTeacher: Bool
 
     public init(
-        startHour: Int = 8,
-        endHour: Int = 21,
+        periods: [Period] = Period.asiaUniversityStandardPeriods,
         showWeekend: Bool = false,
-        hourHeight: CGFloat = 64.0
+        gridCellHeight: CGFloat = 65.0,
+        showCredits: Bool = true,
+        showTeacher: Bool = true
     ) {
-        self.startHour = max(0, min(startHour, 12))
-        self.endHour = max(self.startHour + 4, min(endHour, 23))
+        self.periods = periods.isEmpty ? Period.asiaUniversityStandardPeriods : periods
         self.showWeekend = showWeekend
-        self.hourHeight = max(40.0, min(hourHeight, 100.0))
+        self.gridCellHeight = max(40.0, min(gridCellHeight, 110.0))
+        self.showCredits = showCredits
+        self.showTeacher = showTeacher
     }
 
-    /// 当前显示的星期数组 (1: 周一 ... 5: 周五，或 1...7)
+    /// 目前顯示的星期陣列 (1: 週一 ... 5: 週五，或 1...7)
     public var visibleDays: [Int] {
         showWeekend ? Array(1...7) : Array(1...5)
     }
 
-    /// 总小时数跨度
-    public var totalHours: Int {
-        max(1, endHour - startHour)
+    /// 依據 ID 查找節次
+    public func period(for id: String) -> Period? {
+        periods.first { $0.id == id }
+    }
+
+    /// 取得節次在清單中的索引
+    public func indexOfPeriod(id: String) -> Int? {
+        periods.firstIndex { $0.id == id }
     }
 }

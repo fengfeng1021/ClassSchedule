@@ -1,18 +1,21 @@
 import SwiftUI
 
-/// 课程添加 / 编辑表单视图 (遵循 Apple HIG 原生表单规范)
+/// 課程新增 / 編輯表單視圖（全正體中文，支援大專院校節次快速選擇與連堂設定）
 public struct CourseEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: CourseStore
 
     var courseToEdit: Course?
+    var initialDay: Int?
+    var initialPeriodId: String?
 
     @State private var name: String = ""
     @State private var teacher: String = ""
     @State private var classroom: String = ""
+    @State private var credits: String = "3學分"
     @State private var dayOfWeek: Int = 1
-    @State private var startDate: Date = Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date()) ?? Date()
-    @State private var endDate: Date = Calendar.current.date(bySettingHour: 10, minute: 5, second: 0, of: Date()) ?? Date()
+    @State private var startPeriodId: String = "1"
+    @State private var endPeriodId: String = "1"
     @State private var selectedColor: String = "indigo"
     @State private var notes: String = ""
     @State private var showingDeleteAlert = false
@@ -25,31 +28,41 @@ public struct CourseEditSheet: View {
         courseToEdit != nil
     }
 
-    private var durationMinutes: Int {
-        let start = TimeOfDay(date: startDate)
-        let end = TimeOfDay(date: endDate)
-        return max(end.totalMinutes - start.totalMinutes, 0)
+    private var periods: [Period] {
+        store.settings.periods
+    }
+
+    private var spanCount: Int {
+        let startIndex = store.settings.indexOfPeriod(id: startPeriodId) ?? 0
+        let endIndex = store.settings.indexOfPeriod(id: endPeriodId) ?? startIndex
+        return max(endIndex - startIndex + 1, 1)
     }
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !classroom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        durationMinutes > 0
+        !classroom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    public init(store: CourseStore, courseToEdit: Course? = nil) {
+    public init(
+        store: CourseStore,
+        courseToEdit: Course? = nil,
+        initialDay: Int? = nil,
+        initialPeriodId: String? = nil
+    ) {
         self.store = store
         self.courseToEdit = courseToEdit
+        self.initialDay = initialDay
+        self.initialPeriodId = initialPeriodId
     }
 
     public var body: some View {
         NavigationStack {
             Form {
-                // MARK: 课程基础信息
+                // MARK: 課程基本資訊
                 Section {
                     HStack(spacing: 12) {
                         Label {
-                            TextField("课程名称 (如: 高等数学)", text: $name)
+                            TextField("課程名稱 (如: 商業模式創新 B)", text: $name)
                         } icon: {
                             Image(systemName: "book.closed.fill")
                                 .foregroundStyle(colorForName(selectedColor))
@@ -58,7 +71,7 @@ public struct CourseEditSheet: View {
 
                     HStack(spacing: 12) {
                         Label {
-                            TextField("上课教室 (如: 教三楼 302)", text: $classroom)
+                            TextField("上課教室 (如: M008 或 創意工坊)", text: $classroom)
                         } icon: {
                             Image(systemName: "mappin.and.ellipse")
                                 .foregroundStyle(.red)
@@ -67,19 +80,28 @@ public struct CourseEditSheet: View {
 
                     HStack(spacing: 12) {
                         Label {
-                            TextField("任课教师 (可选)", text: $teacher)
+                            TextField("授課教師 (如: 黃建元 教授)", text: $teacher)
                         } icon: {
                             Image(systemName: "person.crop.circle")
                                 .foregroundStyle(.secondary)
                         }
                     }
+
+                    HStack(spacing: 12) {
+                        Label {
+                            TextField("學分數 (如: 3學分)", text: $credits)
+                        } icon: {
+                            Image(systemName: "graduationcap")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 } header: {
-                    Text("基本信息")
+                    Text("基本資訊")
                 } footer: {
-                    Text("教室地点将在课表与小工具中以醒目字号重点展示。")
+                    Text("上課教室地點將在課表格子與頂部即時橫幅以醒目大字凸顯，助您準確趕往教室。")
                 }
 
-                // MARK: 时间与星期
+                // MARK: 星期與節次安排
                 Section {
                     Picker("星期", selection: $dayOfWeek) {
                         ForEach(1...7, id: \.self) { day in
@@ -88,20 +110,26 @@ public struct CourseEditSheet: View {
                     }
                     .pickerStyle(.menu)
 
-                    DatePicker("开始时间", selection: $startDate, displayedComponents: .hourAndMinute)
-                    DatePicker("结束时间", selection: $endDate, displayedComponents: .hourAndMinute)
-                } header: {
-                    Text("时间安排")
-                } footer: {
-                    if durationMinutes > 0 {
-                        Text("上课时长：\(durationMinutes) 分钟（将精确映射至课表时间轴对应位置）。")
-                    } else {
-                        Text("⚠️ 结束时间必须晚于开始时间。")
-                            .foregroundStyle(.red)
+                    Picker("起始節次", selection: $startPeriodId) {
+                        ForEach(periods) { period in
+                            Text("\(period.name) (\(period.startTime.formatted))").tag(period.id)
+                        }
                     }
+                    .pickerStyle(.menu)
+
+                    Picker("結束節次", selection: $endPeriodId) {
+                        ForEach(periods) { period in
+                            Text("\(period.name) (\(period.endTime.formatted))").tag(period.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text("時段安排")
+                } footer: {
+                    Text("共計 \(spanCount) 節課。建立後亦可在課表首頁直接拖曳卡片邊框快速多選或縮減節次。")
                 }
 
-                // MARK: 课程主题色
+                // MARK: 課程主題色彩
                 Section("卡片色彩") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 14) {
@@ -133,13 +161,13 @@ public struct CourseEditSheet: View {
                     }
                 }
 
-                // MARK: 备注说明
-                Section("备注与考核说明") {
-                    TextField("选修/必修、携带教材、课堂小测要求等...", text: $notes, axis: .vertical)
+                // MARK: 備註與考核說明
+                Section("備註與說明") {
+                    TextField("選修/必修、實習教室、分組報告說明等...", text: $notes, axis: .vertical)
                         .lineLimit(3...5)
                 }
 
-                // MARK: 编辑时提供删除操作
+                // MARK: 編輯模式下的刪除操作
                 if isEditing {
                     Section {
                         Button(role: .destructive) {
@@ -147,14 +175,14 @@ public struct CourseEditSheet: View {
                         } label: {
                             HStack {
                                 Spacer()
-                                Text("删除此课程")
+                                Text("刪除此門課程")
                                 Spacer()
                             }
                         }
                     }
                 }
             }
-            .navigationTitle(isEditing ? "编辑课程" : "添加课程")
+            .navigationTitle(isEditing ? "編輯課程" : "新增課程")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -163,7 +191,7 @@ public struct CourseEditSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button("儲存") {
                         saveCourse()
                         dismiss()
                     }
@@ -171,16 +199,16 @@ public struct CourseEditSheet: View {
                     .fontWeight(.semibold)
                 }
             }
-            .alert("确认删除课程？", isPresented: $showingDeleteAlert) {
+            .alert("確定要刪除這門課程？", isPresented: $showingDeleteAlert) {
                 Button("取消", role: .cancel) {}
-                Button("删除", role: .destructive) {
+                Button("刪除", role: .destructive) {
                     if let course = courseToEdit {
                         store.delete(course)
                     }
                     dismiss()
                 }
             } message: {
-                Text("删除后无法恢复该课程的时间与教室记录。")
+                Text("刪除後將從課表格子中移除該課程及其教室時段。")
             }
             .onAppear {
                 initializeData()
@@ -189,28 +217,50 @@ public struct CourseEditSheet: View {
     }
 
     private func initializeData() {
-        guard let course = courseToEdit else { return }
-        self.name = course.name
-        self.teacher = course.teacher
-        self.classroom = course.classroom
-        self.dayOfWeek = course.dayOfWeek
-        self.startDate = course.startTime.toDate()
-        self.endDate = course.endTime.toDate()
-        self.selectedColor = course.colorName
-        self.notes = course.notes
+        if let course = courseToEdit {
+            self.name = course.name
+            self.teacher = course.teacher
+            self.classroom = course.classroom
+            self.credits = course.credits
+            self.dayOfWeek = course.dayOfWeek
+            self.startPeriodId = course.startPeriodId
+            self.endPeriodId = course.endPeriodId
+            self.selectedColor = course.colorName
+            self.notes = course.notes
+        } else {
+            if let day = initialDay {
+                self.dayOfWeek = day
+            }
+            if let periodId = initialPeriodId {
+                self.startPeriodId = periodId
+                self.endPeriodId = periodId
+            }
+        }
     }
 
     private func saveCourse() {
-        let start = TimeOfDay(date: startDate)
-        let end = TimeOfDay(date: endDate)
+        guard let startP = store.settings.period(for: startPeriodId),
+              let endP = store.settings.period(for: endPeriodId) else { return }
+
+        // 確保起始與結束順序
+        let startIndex = store.settings.indexOfPeriod(id: startPeriodId) ?? 0
+        let endIndex = store.settings.indexOfPeriod(id: endPeriodId) ?? startIndex
+
+        let finalStartId = startIndex <= endIndex ? startPeriodId : endPeriodId
+        let finalEndId = startIndex <= endIndex ? endPeriodId : startPeriodId
+        let finalStartTime = startIndex <= endIndex ? startP.startTime : endP.startTime
+        let finalEndTime = startIndex <= endIndex ? endP.endTime : startP.endTime
 
         if var course = courseToEdit {
             course.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
             course.teacher = teacher.trimmingCharacters(in: .whitespacesAndNewlines)
             course.classroom = classroom.trimmingCharacters(in: .whitespacesAndNewlines)
+            course.credits = credits.trimmingCharacters(in: .whitespacesAndNewlines)
             course.dayOfWeek = dayOfWeek
-            course.startTime = start
-            course.endTime = end
+            course.startPeriodId = finalStartId
+            course.endPeriodId = finalEndId
+            course.startTime = finalStartTime
+            course.endTime = finalEndTime
             course.colorName = selectedColor
             course.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
             store.update(course)
@@ -219,9 +269,12 @@ public struct CourseEditSheet: View {
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                 teacher: teacher.trimmingCharacters(in: .whitespacesAndNewlines),
                 classroom: classroom.trimmingCharacters(in: .whitespacesAndNewlines),
+                credits: credits.trimmingCharacters(in: .whitespacesAndNewlines),
                 dayOfWeek: dayOfWeek,
-                startTime: start,
-                endTime: end,
+                startPeriodId: finalStartId,
+                endPeriodId: finalEndId,
+                startTime: finalStartTime,
+                endTime: finalEndTime,
                 colorName: selectedColor,
                 notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
             )
