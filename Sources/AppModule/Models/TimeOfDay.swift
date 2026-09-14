@@ -3,7 +3,7 @@ import Foundation
 /// 结构化一天中的具体时间点 (小时:分钟)
 public struct TimeOfDay: Codable, Hashable, Comparable, Identifiable {
     public var id: String { formatted }
-    
+
     public var hour: Int    // 0 - 23
     public var minute: Int  // 0 - 59
 
@@ -27,9 +27,9 @@ public struct TimeOfDay: Codable, Hashable, Comparable, Identifiable {
         return calendar.date(from: components) ?? baseDate
     }
 
-    /// 格式化为 \"HH:mm\" (如 \"08:30\")
+    /// 格式化为 "HH:mm" (如 "08:30")
     public var formatted: String {
-        String(format: \"%02d:%02d\", hour, minute)
+        String(format: "%02d:%02d", hour, minute)
     }
 
     /// 总分钟数，用于快速比较
