@@ -1,10 +1,30 @@
 import Foundation
 import SwiftUI
 
+/// 應用程式外觀模式（支援跟隨系統、固定淺色、固定深色）
+public enum AppAppearanceMode: String, Codable, CaseIterable, Identifiable {
+    case system = "跟隨系統"
+    case light = "淺色模式"
+    case dark = "深色模式"
+
+    public var id: String { rawValue }
+
+    public var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 /// 課表節次矩陣與檢視自訂設定（全正體中文）
 public struct ScheduleSettings: Codable, Equatable {
     /// 包含的所有節次列表（依序排列）
     public var periods: [Period]
+
+    /// 應用程式整體外觀模式
+    public var appearanceMode: AppAppearanceMode
 
     /// 是否顯示晨間 M 時段 (07:30 ~ 08:00，預設 false)
     public var showMorningM: Bool
@@ -29,6 +49,7 @@ public struct ScheduleSettings: Codable, Equatable {
 
     public init(
         periods: [Period] = Period.asiaUniversityStandardPeriods,
+        appearanceMode: AppAppearanceMode = .system,
         showMorningM: Bool = false,
         showNoonN: Bool = true,
         showEveningPeriods: Bool = false,
@@ -38,6 +59,7 @@ public struct ScheduleSettings: Codable, Equatable {
         widgetSettings: WidgetSettings = WidgetSettings()
     ) {
         self.periods = periods.isEmpty ? Period.asiaUniversityStandardPeriods : periods
+        self.appearanceMode = appearanceMode
         self.showMorningM = showMorningM
         self.showNoonN = showNoonN
         self.showEveningPeriods = showEveningPeriods
@@ -50,6 +72,7 @@ public struct ScheduleSettings: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.periods = try container.decodeIfPresent([Period].self, forKey: .periods) ?? Period.asiaUniversityStandardPeriods
+        self.appearanceMode = try container.decodeIfPresent(AppAppearanceMode.self, forKey: .appearanceMode) ?? .system
         self.showMorningM = try container.decodeIfPresent(Bool.self, forKey: .showMorningM) ?? false
         self.showNoonN = try container.decodeIfPresent(Bool.self, forKey: .showNoonN) ?? true
         self.showEveningPeriods = try container.decodeIfPresent(Bool.self, forKey: .showEveningPeriods) ?? false

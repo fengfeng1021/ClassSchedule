@@ -123,6 +123,28 @@ public struct ScheduleGridView: View {
                                 Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
                             }
 
+                            Menu {
+                                Button {
+                                    setAppearanceMode(.light)
+                                } label: {
+                                    Label("淺色模式", systemImage: settings.appearanceMode == .light ? "checkmark" : "sun.max")
+                                }
+
+                                Button {
+                                    setAppearanceMode(.dark)
+                                } label: {
+                                    Label("深色模式", systemImage: settings.appearanceMode == .dark ? "checkmark" : "moon.fill")
+                                }
+
+                                Button {
+                                    setAppearanceMode(.system)
+                                } label: {
+                                    Label("跟隨系統", systemImage: settings.appearanceMode == .system ? "checkmark" : "circle.lefthalf.filled")
+                                }
+                            } label: {
+                                Label("外觀模式: \(settings.appearanceMode.rawValue)", systemImage: settings.appearanceMode == .dark ? "moon.fill" : (settings.appearanceMode == .light ? "sun.max" : "circle.lefthalf.filled"))
+                            }
+
                             Button {
                                 showingExportSheet = true
                             } label: {
@@ -204,6 +226,7 @@ public struct ScheduleGridView: View {
             .onReceive(timer) { input in
                 currentDate = input
             }
+            .preferredColorScheme(settings.appearanceMode.colorScheme)
         }
     }
 
@@ -629,6 +652,13 @@ public struct ScheduleGridView: View {
     }
 
     // MARK: - 快捷動作
+
+    private func setAppearanceMode(_ mode: AppAppearanceMode) {
+        var newSettings = store.settings
+        newSettings.appearanceMode = mode
+        store.updateSettings(newSettings)
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
 
     private func toggleEveningPeriods() {
         store.settings.showEveningPeriods.toggle()

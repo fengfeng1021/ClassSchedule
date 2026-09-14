@@ -1,11 +1,20 @@
 import SwiftUI
 import UIKit
 
-/// 乾淨課表照片導出與儲存視圖
+/// 課表照片匯出外觀主題
+public enum ScheduleExportTheme: String, CaseIterable, Identifiable {
+    case light = "淺色模式"
+    case dark = "深色模式"
+
+    public var id: String { rawValue }
+}
+
+/// 乾淨課表照片導出與儲存視圖（支援淺色模式與深色模式自由選擇切換）
 public struct CleanScheduleExportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: CourseStore
 
+    @State private var exportTheme: ScheduleExportTheme = .light
     @State private var renderedImage: UIImage?
     @State private var isRendering: Bool = true
     @State private var showingSaveSuccessAlert = false
@@ -18,7 +27,24 @@ public struct CleanScheduleExportSheet: View {
 
     public var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
+                // 外觀模式切換器 (淺色模式 / 深色模式)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("照片外觀風格")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+
+                    Picker("照片外觀風格", selection: $exportTheme) {
+                        ForEach(ScheduleExportTheme.allCases) { theme in
+                            Text(theme.rawValue).tag(theme)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                }
+
                 if isRendering {
                     VStack(spacing: 12) {
                         ProgressView()
@@ -40,9 +66,9 @@ public struct CleanScheduleExportSheet: View {
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .stroke(Color.primary.opacity(0.08), lineWidth: 1)
                                 )
-                                .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 4)
+                                .shadow(color: Color.black.opacity(exportTheme == .dark ? 0.35 : 0.08), radius: 12, x: 0, y: 4)
                                 .padding(.horizontal, 16)
-                                .padding(.top, 12)
+                                .padding(.top, 4)
 
                             // 操作按鈕組
                             VStack(spacing: 12) {
@@ -51,7 +77,7 @@ public struct CleanScheduleExportSheet: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "square.and.arrow.down.fill")
-                                        Text("儲存課表圖片至相簿")
+                                        Text("儲存課表圖片至相簿 (\(exportTheme.rawValue))")
                                             .fontWeight(.bold)
                                     }
                                     .frame(maxWidth: .infinity)
@@ -102,12 +128,15 @@ public struct CleanScheduleExportSheet: View {
             .task {
                 renderScheduleImage()
             }
+            .onChange(of: exportTheme) { _ in
+                renderScheduleImage()
+            }
             .alert("儲存成功", isPresented: $showingSaveSuccessAlert) {
                 Button("完成") {
                     dismiss()
                 }
             } message: {
-                Text("乾淨課表照片已成功儲存至本機相簿！")
+                Text("乾淨課表照片（\(exportTheme.rawValue)）已成功儲存至本機相簿！")
             }
             .sheet(isPresented: $showingShareSheet) {
                 if let image = renderedImage {
@@ -119,9 +148,9 @@ public struct CleanScheduleExportSheet: View {
 
     @MainActor
     private func renderScheduleImage() {
-        let exportView = CleanScheduleCanvasView(store: store)
+        isRendering = true
+        let exportView = CleanScheduleCanvasView(store: store, theme: exportTheme)
             .frame(width: 1200, height: 820)
-            .background(Color.white)
 
         let renderer = ImageRenderer(content: exportView)
         renderer.scale = 2.0 // 高清 2x 視網膜畫質
@@ -148,9 +177,10 @@ public struct CleanScheduleExportSheet: View {
     }
 }
 
-/// 專用於圖片匯出的純淨課表畫布（無拖曳把手、無按鈕、排版精美大氣）
+/// 專用於圖片匯出的純淨課表畫布（支援淺色/深色模式，無多餘手勢柄與按鈕）
 public struct CleanScheduleCanvasView: View {
     @ObservedObject var store: CourseStore
+    let theme: ScheduleExportTheme
 
     private var settings: ScheduleSettings {
         store.settings
@@ -164,31 +194,61 @@ public struct CleanScheduleCanvasView: View {
         settings.visibleDays
     }
 
-    public init(store: CourseStore) {
+    public init(store: CourseStore, theme: ScheduleExportTheme = .light) {
         self.store = store
+        self.theme = theme
     }
 
     private let weekdayNames = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
 
+    // 配色主題微調
+    private var canvasBackgroundColor: Color {
+        theme == .dark ? Color(red: 0.08, green: 0.08, blue: 0.10) : Color.white
+    }
+
+    private var headerTextColor: Color {
+        theme == .dark ? Color.white : Color.primary
+    }
+
+    private var subtitleTextColor: Color {
+        theme == .dark ? Color.white.opacity(0.70) : Color.secondary
+    }
+
+    private var weekdayBarBackground: Color {
+        theme == .dark ? Color(red: 0.14, green: 0.14, blue: 0.16) : Color(uiColor: .systemGray6)
+    }
+
+    private var weekdayTextColor: Color {
+        theme == .dark ? Color.white : Color.primary
+    }
+
+    private var periodsColumnBackground: Color {
+        theme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(uiColor: .systemGray6).opacity(0.5)
+    }
+
+    private var gridLineColor: Color {
+        theme == .dark ? Color.white.opacity(0.08) : Color.primary.opacity(0.06)
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
-            // 頂部課表標題與精美裝飾
+            // 頂部課表標題與資訊
             HStack(alignment: .lastTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("我的課程表")
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(headerTextColor)
 
                     Text("共 \(store.courses.count) 門課程 · 總計 \(totalCredits) 學分")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(subtitleTextColor)
                 }
 
                 Spacer()
 
                 Text("ClassSchedule")
                     .font(.system(size: 13, weight: .black, design: .monospaced))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(theme == .dark ? Color.white.opacity(0.35) : Color.tertiary)
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
@@ -198,19 +258,19 @@ public struct CleanScheduleCanvasView: View {
             HStack(spacing: 0) {
                 Text("節次")
                     .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(subtitleTextColor)
                     .frame(width: 80, height: 40)
 
                 ForEach(visibleDays, id: \.self) { day in
                     let name = day >= 1 && day <= 7 ? weekdayNames[day - 1] : "第\(day)天"
                     Text(name)
                         .font(.system(size: 14, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(weekdayTextColor)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                 }
             }
-            .background(Color(uiColor: .systemGray6))
+            .background(weekdayBarBackground)
 
             Divider()
 
@@ -222,27 +282,27 @@ public struct CleanScheduleCanvasView: View {
                         VStack(spacing: 2) {
                             Text(period.shortName)
                                 .font(.system(size: 14, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(headerTextColor)
 
                             Text(period.startTime.formatted)
                                 .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(subtitleTextColor)
 
                             Text(period.endTime.formatted)
                                 .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(theme == .dark ? Color.white.opacity(0.4) : Color.tertiary)
                         }
                         .frame(width: 80)
                         .frame(maxHeight: .infinity)
                         .overlay(
                             Rectangle()
-                                .fill(Color.primary.opacity(0.04))
+                                .fill(gridLineColor)
                                 .frame(height: 1),
                             alignment: .bottom
                         )
                     }
                 }
-                .background(Color(uiColor: .systemGray6).opacity(0.5))
+                .background(periodsColumnBackground)
 
                 // 各星期課程網格
                 HStack(spacing: 0) {
@@ -256,7 +316,7 @@ public struct CleanScheduleCanvasView: View {
                                         .frame(maxHeight: .infinity)
                                         .overlay(
                                             Rectangle()
-                                                .fill(Color.primary.opacity(0.06))
+                                                .fill(gridLineColor)
                                                 .frame(height: 1),
                                             alignment: .bottom
                                         )
@@ -286,7 +346,7 @@ public struct CleanScheduleCanvasView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay(
                             Rectangle()
-                                .fill(Color.primary.opacity(0.06))
+                                .fill(gridLineColor)
                                 .frame(width: 1),
                             alignment: .trailing
                         )
@@ -295,7 +355,7 @@ public struct CleanScheduleCanvasView: View {
             }
             .frame(maxHeight: .infinity)
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(canvasBackgroundColor)
     }
 
     private var totalCredits: String {
@@ -308,23 +368,30 @@ public struct CleanScheduleCanvasView: View {
 
     private func cleanCourseCard(_ course: Course) -> some View {
         ZStack {
+            let fillGradient = LinearGradient(
+                colors: [
+                    course.color.opacity(theme == .dark ? 0.35 : 0.24),
+                    course.color.opacity(theme == .dark ? 0.18 : 0.12)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [course.color.opacity(0.24), course.color.opacity(0.12)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                .fill(fillGradient)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(theme == .dark ? Color(red: 0.14, green: 0.14, blue: 0.17) : Color.white)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(course.color.opacity(0.4), lineWidth: 1)
+                        .stroke(course.color.opacity(theme == .dark ? 0.60 : 0.40), lineWidth: 1)
                 )
 
             VStack(spacing: 3) {
                 Text(course.name)
                     .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
@@ -332,16 +399,19 @@ public struct CleanScheduleCanvasView: View {
                 if !course.classroom.isEmpty {
                     Text(course.classroom)
                         .font(.system(size: 11, weight: .black, design: .rounded))
-                        .foregroundStyle(course.color)
+                        .foregroundStyle(theme == .dark ? Color.yellow : course.color)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.85), in: Capsule())
+                        .background(
+                            theme == .dark ? Color.black.opacity(0.55) : Color.white.opacity(0.85),
+                            in: Capsule()
+                        )
                 }
 
                 if settings.showTeacher && !course.teacher.isEmpty {
                     Text(course.teacher)
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(subtitleTextColor)
                         .lineLimit(1)
                 }
             }

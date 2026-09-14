@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 課表節次時段與全域檢視設定彈窗（支援各大專院校與中學通用時段自訂、各節次起訖時間自由微調）
+/// 課表節次時段與全域檢視設定彈窗（支援各大專院校與中學通用時段自訂、各節次起訖時間自由微調、外觀模式切換）
 public struct ScheduleSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: CourseStore
@@ -8,15 +8,15 @@ public struct ScheduleSettingsSheet: View {
     // 節次列表編輯快取
     @State private var periods: [Period] = []
 
+    // 外觀模式
+    @State private var appearanceMode: AppAppearanceMode = .system
+
     // 快速產生規則參數
     @State private var ruleCount: Int = 10
     @State private var ruleStartTime = Calendar.current.date(bySettingHour: 8, minute: 10, second: 0, of: Date()) ?? Date()
     @State private var ruleDuration: Int = 50
     @State private var ruleBreak: Int = 10
     @State private var isRuleExpanded: Bool = false
-
-    // 當前展開編輯起訖時間的節次 ID
-    @State private var expandedPeriodId: String?
 
     // 檢視範圍與顯示偏好
     @State private var showWeekend: Bool = false
@@ -33,7 +33,17 @@ public struct ScheduleSettingsSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
-                // MARK: 1. 通用節次規則批次產生器
+                // MARK: 1. 外觀模式設定
+                Section("外觀風格") {
+                    Picker("外觀風格", selection: $appearanceMode) {
+                        ForEach(AppAppearanceMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                // MARK: 2. 通用節次規則批次產生器
                 Section {
                     DisclosureGroup("依通用規則快速計算所有節次", isExpanded: $isRuleExpanded) {
                         VStack(spacing: 12) {
@@ -103,79 +113,38 @@ public struct ScheduleSettingsSheet: View {
                     Text("支援各大專院校與中學自主排程，可設定任意節次數量與課堂時長。")
                 }
 
-                // MARK: 2. 各節次詳細清單與起訖時間微調
+                // MARK: 3. 專屬獨立頁面：各節次詳細清單與起訖時間微調 (避免主頁冗長列出14節)
                 Section {
-                    ForEach($periods) { $period in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Toggle(isOn: $period.isEnabled) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(period.name)
-                                            .font(.body.weight(.semibold))
-                                        Text("\(period.startTime.formatted) ~ \(period.endTime.formatted)")
-                                            .font(.caption.monospacedDigit())
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        if expandedPeriodId == period.id {
-                                            expandedPeriodId = nil
-                                        } else {
-                                            expandedPeriodId = period.id
-                                        }
-                                    }
-                                } label: {
-                                    Image(systemName: expandedPeriodId == period.id ? "chevron.up.circle.fill" : "pencil.circle")
-                                        .font(.system(size: 20))
-                                        .foregroundStyle(.blue)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("編輯時間")
-                            }
-
-                            if expandedPeriodId == period.id {
-                                VStack(spacing: 8) {
-                                    Divider()
-                                    DatePicker("開始時間", selection: Binding(
-                                        get: { period.startTime.toDate() },
-                                        set: { period.startTime = TimeOfDay(date: $0) }
-                                    ), displayedComponents: .hourAndMinute)
-
-                                    DatePicker("結束時間", selection: Binding(
-                                        get: { period.endTime.toDate() },
-                                        set: { period.endTime = TimeOfDay(date: $0) }
-                                    ), displayedComponents: .hourAndMinute)
-                                }
-                                .padding(.top, 4)
-                                .padding(.bottom, 2)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-
-                    Button {
-                        addNewPeriod()
+                    NavigationLink {
+                        PeriodDetailCustomizationView(periods: $periods)
                     } label: {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("新增自訂節次")
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("自訂節次起訖時間")
+                                    .font(.body.weight(.semibold))
+                                Text("進入詳細調整各節次時間與單獨開關")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Text("共 \(periods.filter { $0.isEnabled }.count) 節啟用")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.blue)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.blue.opacity(0.1), in: Capsule())
                         }
+                        .padding(.vertical, 4)
                     }
                 } header: {
-                    HStack {
-                        Text("節次列表與時間微調")
-                        Spacer()
-                        Text("共 \(periods.filter { $0.isEnabled }.count) 節啟用")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("節次時段管理")
                 } footer: {
-                    Text("可單獨開關節次或點選右側圖示手動修改具體起訖時間。未啟用的節次不會佔用課表畫面。")
+                    Text("點選進入專屬頁面自訂各節次時間。每行均可直接點擊展開調整時間，或單獨開關節次。未啟用的節次不會佔用課表畫面。")
                 }
 
-                // MARK: 3. 星期檢視範圍
+                // MARK: 4. 星期檢視範圍
                 Section {
                     Toggle("顯示週末 (週六與週日)", isOn: $showWeekend)
                 } header: {
@@ -184,13 +153,13 @@ public struct ScheduleSettingsSheet: View {
                     Text(showWeekend ? "目前呈現週一至週日全週 7 天課表。" : "關閉後僅呈現週一至週五 5 天課表，在螢幕上每一天的格子更加方正寬敞。")
                 }
 
-                // MARK: 4. 卡片內容顯示
+                // MARK: 5. 卡片內容顯示
                 Section("卡片內容顯示") {
                     Toggle("顯示學分數", isOn: $showCredits)
                     Toggle("顯示授課教師", isOn: $showTeacher)
                 }
 
-                // MARK: 5. 資料維護
+                // MARK: 6. 資料維護
                 Section("資料維護") {
                     HStack {
                         Text("目前已排入課程")
@@ -234,6 +203,7 @@ public struct ScheduleSettingsSheet: View {
             }
             .onAppear {
                 self.periods = store.settings.periods
+                self.appearanceMode = store.settings.appearanceMode
                 self.showWeekend = store.settings.showWeekend
                 self.showCredits = store.settings.showCredits
                 self.showTeacher = store.settings.showTeacher
@@ -256,6 +226,129 @@ public struct ScheduleSettingsSheet: View {
         showToast("已成功產生 \(ruleCount) 個節次時段！")
     }
 
+    private func showToast(_ msg: String) {
+        toastMessage = msg
+        showingSuccessToast = true
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    private func saveAndDismiss() {
+        var newSettings = store.settings
+        newSettings.periods = periods
+        newSettings.appearanceMode = appearanceMode
+        newSettings.showWeekend = showWeekend
+        newSettings.showCredits = showCredits
+        newSettings.showTeacher = showTeacher
+        store.updateSettings(newSettings)
+        dismiss()
+    }
+}
+
+/// 專屬頁面：自訂節次起訖時間（點擊整行直接展開、美觀易操作）
+public struct PeriodDetailCustomizationView: View {
+    @Binding var periods: [Period]
+    @State private var expandedPeriodId: String?
+
+    public var body: some View {
+        List {
+            Section {
+                ForEach($periods) { $period in
+                    VStack(alignment: .leading, spacing: 0) {
+                        // 點擊整行直接展開或收起起訖時間編輯區
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                if expandedPeriodId == period.id {
+                                    expandedPeriodId = nil
+                                } else {
+                                    expandedPeriodId = period.id
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 6) {
+                                        Text(period.name)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(period.isEnabled ? .primary : .secondary)
+
+                                        if !period.isEnabled {
+                                            Text("已停用")
+                                                .font(.caption2.weight(.bold))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 1.5)
+                                                .background(Color.secondary.opacity(0.15), in: Capsule())
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+
+                                    Text("\(period.startTime.formatted) ~ \(period.endTime.formatted)")
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(period.isEnabled ? .secondary : .tertiary)
+                                }
+
+                                Spacer()
+
+                                Toggle("", isOn: $period.isEnabled)
+                                    .labelsHidden()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.tertiary)
+                                    .rotationEffect(.degrees(expandedPeriodId == period.id ? 90 : 0))
+                            }
+                            .contentShape(Rectangle())
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
+
+                        // 展開編輯區
+                        if expandedPeriodId == period.id {
+                            VStack(spacing: 10) {
+                                Divider()
+
+                                DatePicker("開始時間", selection: Binding(
+                                    get: { period.startTime.toDate() },
+                                    set: { period.startTime = TimeOfDay(date: $0) }
+                                ), displayedComponents: .hourAndMinute)
+
+                                DatePicker("結束時間", selection: Binding(
+                                    get: { period.endTime.toDate() },
+                                    set: { period.endTime = TimeOfDay(date: $0) }
+                                ), displayedComponents: .hourAndMinute)
+                            }
+                            .padding(.vertical, 6)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+                }
+
+                Button {
+                    addNewPeriod()
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(.blue)
+                        Text("新增自訂節次")
+                            .fontWeight(.medium)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                HStack {
+                    Text("節次列表")
+                    Spacer()
+                    Text("共 \(periods.filter { $0.isEnabled }.count) 節啟用")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("直接點擊任意節次即可展開修改開始與結束時間；點擊開關可啟用或停用該節次。")
+            }
+        }
+        .navigationTitle("調節節次與時間")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
     private func addNewPeriod() {
         let nextIndex = periods.count + 1
         let lastEnd = periods.last?.endTime ?? TimeOfDay(hour: 8, minute: 0)
@@ -270,22 +363,8 @@ public struct ScheduleSettingsSheet: View {
             isEnabled: true
         )
         periods.append(newPeriod)
-        expandedPeriodId = newPeriod.id
-    }
-
-    private func showToast(_ msg: String) {
-        toastMessage = msg
-        showingSuccessToast = true
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-    }
-
-    private func saveAndDismiss() {
-        var newSettings = store.settings
-        newSettings.periods = periods
-        newSettings.showWeekend = showWeekend
-        newSettings.showCredits = showCredits
-        newSettings.showTeacher = showTeacher
-        store.updateSettings(newSettings)
-        dismiss()
+        withAnimation {
+            expandedPeriodId = newPeriod.id
+        }
     }
 }
