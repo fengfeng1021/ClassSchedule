@@ -89,134 +89,103 @@ public struct ScheduleGridView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // MARK: 頂部中央 Apple 官方流體毛玻璃動態膠囊分頁器 (課表 | 小工具設定，支援絲滑 spring 滑塊與觸覺反饋)
+                // MARK: 頂部中央 Apple 原生分頁器 (課表 | 小工具設定)
                 ToolbarItem(placement: .principal) {
-                    AppleLiquidCapsuleTabPicker(selectedTab: $selectedTab)
+                    let isPad = UIDevice.current.userInterfaceIdiom == .pad
+                    Picker("主要頁面分頁", selection: $selectedTab) {
+                        ForEach(AppMainTab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: isPad ? 220 : 170)
                 }
 
-                // 左上角選單按鈕（課表與小工具設定均可呼叫，保證樣式與導航體驗一致）
-                ToolbarItem(placement: .navigationBarLeading) {
+                // 左上角選單按鈕（課表與小工具設定均可呼叫，由系統原生渲染單層液態玻璃按鈕）
+                ToolbarItem(placement: .topBarLeading) {
                     Menu {
+                        Button {
+                            showingSettingsSheet = true
+                        } label: {
+                            Label("課表自訂設定", systemImage: "gearshape")
+                        }
+
+                        Button {
+                            toggleEveningPeriods()
+                        } label: {
+                            Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
+                        }
+
+                        Button {
+                            toggleWeekend()
+                        } label: {
+                            Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
+                        }
+
+                        Menu {
                             Button {
-                                showingSettingsSheet = true
+                                setAppearanceMode(.light)
                             } label: {
-                                Label("課表自訂設定", systemImage: "gearshape")
-                            }
-
-                            Button {
-                                toggleEveningPeriods()
-                            } label: {
-                                Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
-                            }
-
-                            Button {
-                                toggleWeekend()
-                            } label: {
-                                Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
-                            }
-
-                            Menu {
-                                Button {
-                                    setAppearanceMode(.light)
-                                } label: {
-                                    Label("淺色模式", systemImage: settings.appearanceMode == .light ? "checkmark" : "sun.max")
-                                }
-
-                                Button {
-                                    setAppearanceMode(.dark)
-                                } label: {
-                                    Label("深色模式", systemImage: settings.appearanceMode == .dark ? "checkmark" : "moon.fill")
-                                }
-
-                                Button {
-                                    setAppearanceMode(.system)
-                                } label: {
-                                    Label("跟隨系統", systemImage: settings.appearanceMode == .system ? "checkmark" : "circle.lefthalf.filled")
-                                }
-                            } label: {
-                                Label("外觀模式: \(settings.appearanceMode.rawValue)", systemImage: settings.appearanceMode == .dark ? "moon.fill" : (settings.appearanceMode == .light ? "sun.max" : "circle.lefthalf.filled"))
+                                Label("淺色模式", systemImage: settings.appearanceMode == .light ? "checkmark" : "sun.max")
                             }
 
                             Button {
-                                showingExportSheet = true
+                                setAppearanceMode(.dark)
                             } label: {
-                                Label("儲存課表圖片", systemImage: "square.and.arrow.down")
+                                Label("深色模式", systemImage: settings.appearanceMode == .dark ? "checkmark" : "moon.fill")
                             }
 
                             Button {
-                                Task {
-                                    await updateService.checkForUpdates(silent: false)
-                                }
+                                setAppearanceMode(.system)
                             } label: {
-                                Label("檢查版本更新", systemImage: "arrow.triangle.2.circlepath")
-                            }
-
-                            Divider()
-
-                            Button(role: .destructive) {
-                                showingClearAlert = true
-                            } label: {
-                                Label("清空目前課表", systemImage: "trash")
+                                Label("跟隨系統", systemImage: settings.appearanceMode == .system ? "checkmark" : "circle.lefthalf.filled")
                             }
                         } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(.primary)
-                                .frame(width: 36, height: 36)
-                                .background(Color(uiColor: .secondarySystemFill), in: Circle())
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
-                                )
-                                .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1.5)
+                            Label("外觀模式: \(settings.appearanceMode.rawValue)", systemImage: settings.appearanceMode == .dark ? "moon.fill" : (settings.appearanceMode == .light ? "sun.max" : "circle.lefthalf.filled"))
                         }
+
+                        Button {
+                            showingExportSheet = true
+                        } label: {
+                            Label("儲存課表圖片", systemImage: "square.and.arrow.down")
+                        }
+
+                        Button {
+                            Task {
+                                await updateService.checkForUpdates(silent: false)
+                            }
+                        } label: {
+                            Label("檢查版本更新", systemImage: "arrow.triangle.2.circlepath")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            showingClearAlert = true
+                        } label: {
+                            Label("清空目前課表", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
                 }
 
-                // MARK: 右上角兩個 Apple Music 招牌質感圓形按鈕
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 8) {
+                // MARK: 右上角 Apple 原生工具列按鈕
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
                         if selectedTab == .schedule {
-                            // 按鈕一：匯入課表 (Apple 圓盤毛玻璃材質按鈕)
                             Button {
                                 showingImportSheet = true
                             } label: {
                                 Image(systemName: "arrow.down.doc")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 36, height: 36)
-                                    .background(Color(uiColor: .secondarySystemFill), in: Circle())
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
-                                    )
-                                    .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1.5)
                             }
-                            .buttonStyle(AppleScaleButtonStyle())
                             .accessibilityLabel("匯入課表")
 
-                            // 按鈕二：新增課程 (Apple 招牌微光藍色漸層圓形按鈕)
                             Button {
                                 courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 36, height: 36)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [Color.blue, Color(red: 0.08, green: 0.48, blue: 0.98)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        in: Circle()
-                                    )
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.28), lineWidth: 0.8)
-                                    )
-                                    .shadow(color: Color.blue.opacity(0.35), radius: 5, x: 0, y: 2)
                             }
-                            .buttonStyle(AppleScaleButtonStyle())
                             .accessibilityLabel("新增課程")
                         }
                     }
@@ -1064,68 +1033,3 @@ struct CourseBlockCard: View {
     }
 }
 
-// MARK: - Apple 官方第一方流體毛玻璃動態膠囊分頁器 (比照 Apple Music 最新互動動效與質感)
-
-public struct AppleLiquidCapsuleTabPicker: View {
-    @Binding var selectedTab: AppMainTab
-    @Namespace private var tabIndicatorNamespace
-
-    public init(selectedTab: Binding<AppMainTab>) {
-        self._selectedTab = selectedTab
-    }
-
-    public var body: some View {
-        HStack(spacing: 0) {
-            ForEach(AppMainTab.allCases) { tab in
-                let isSelected = selectedTab == tab
-                Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                        selectedTab = tab
-                    }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: tab == .schedule ? "calendar" : "square.grid.2x2")
-                            .font(.system(size: 11.5, weight: isSelected ? .bold : .medium))
-
-                        Text(tab.rawValue)
-                            .font(.system(size: 12.5, weight: isSelected ? .bold : .medium, design: .rounded))
-                    }
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 9)
-                    .background {
-                        if isSelected {
-                            Capsule()
-                                .fill(Color(uiColor: .systemBackground))
-                                .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 1.5)
-                                .matchedGeometryEffect(id: "ACTIVE_CAPSULE_PILL", in: tabIndicatorNamespace)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(2.5)
-        .background(
-            Capsule()
-                .fill(Color(uiColor: .tertiarySystemFill))
-        )
-        .overlay(
-            Capsule()
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.8)
-        )
-    }
-}
-
-// MARK: - Apple 觸覺彈性縮放按鈕樣式
-
-public struct AppleScaleButtonStyle: ButtonStyle {
-    public init() {}
-
-    public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}
