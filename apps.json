@@ -1,0 +1,28 @@
+{
+  "name": "ClassSchedule 課表官方源",
+  "identifier": "com.fengfeng.classschedule.source",
+  "sourceURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/apps.json",
+  "subtitle": "質感課表 iOS 官方更新源",
+  "description": "專為學生打造的高顏值現代質感課表，全面支援 iOS 桌面 WidgetKit 小工具、120Hz ProMotion 超高刷新率與 Apple 原生質感設計。",
+  "apps": [
+    {
+      "name": "課表",
+      "bundleIdentifier": "com.fengfeng.classschedule",
+      "developerName": "fengfeng",
+      "subtitle": "桌面小工具與 120Hz 質感課表",
+      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、鎖定畫面）\n• 全域 120Hz ProMotion 超高刷新率優化\n• 原生質感設計與 iPad 原生工具列風格\n• 支援無感覆蓋更新，完美保留現有課表資料",
+      "iconURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/AppIcon.png",
+      "tintColor": "3478F6",
+      "versions": [
+        {
+          "version": "1.0.4",
+          "date": "2026-09-14",
+          "localizedDescription": "1. 支援 SideStore / AltStore 一鍵深度喚醒自動升級\n2. 提供 SideStore 官方源綁定功能，可在軟體源內直接點擊 UPDATE\n3. 全域 120Hz ProMotion 彈窗優化與 iPad 原生工具列風格",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.4/ClassSchedule.ipa",
+          "size": 15000000,
+          "minOSVersion": "16.0"
+        }
+      ]
+    }
+  ]
+}

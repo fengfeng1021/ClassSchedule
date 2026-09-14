@@ -179,6 +179,54 @@ public struct ScheduleSettingsSheet: View {
                         Text("清空目前所有課程")
                     }
                 }
+
+                // MARK: 7. 版本與 SideStore 更新
+                Section {
+                    HStack {
+                        Text("目前版本")
+                        Spacer()
+                        Text("v\(AppUpdateService.shared.currentVersion)")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        Task {
+                            await AppUpdateService.shared.checkForUpdates(silent: false)
+                        }
+                    } label: {
+                        HStack {
+                            Text("檢查新版本")
+                            Spacer()
+                            if AppUpdateService.shared.isChecking {
+                                ProgressView()
+                            }
+                        }
+                    }
+
+                    Button {
+                        let sourceUrl = "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/apps.json"
+                        if let encoded = sourceUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                           let url = URL(string: "sidestore://source?url=\(encoded)") {
+                            UIApplication.shared.open(url) { success in
+                                if !success, let altUrl = URL(string: "altstore://source?url=\(encoded)") {
+                                    UIApplication.shared.open(altUrl)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Label("將課表加入 SideStore 官方源", systemImage: "plus.app")
+                            Spacer()
+                            Image(systemName: "arrow.up.forward.app")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("版本與更新")
+                } footer: {
+                    Text("加入 SideStore 軟體源後，未來有新版時可在 SideStore 內直接點擊 UPDATE 一鍵升級。覆蓋升級沿用同一 App ID，不消耗每週 10 個簽名配額。")
+                }
             }
             .navigationTitle("課表設定")
             .navigationBarTitleDisplayMode(.inline)
