@@ -32,12 +32,16 @@ public struct ScheduleGridView: View {
     @State private var dragBottomOffset: CGFloat = 0
     @State private var draggingTopCourseId: UUID?
     @State private var dragTopOffset: CGFloat = 0
+    @State private var draggingWholeCourseId: UUID?
+    @State private var dragWholeOffset: CGFloat = 0
     @State private var currentDragStep: Int = 0
 
     // 每 15 秒輕量更新一次目前時間與狀態
     private let timer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
 
-    private let timeColumnWidth: CGFloat = 46.0
+    private var timeColumnWidth: CGFloat {
+        UIDevice.current.userInterfaceIdiom == .pad ? 64.0 : 54.0
+    }
 
     public init(store: CourseStore) {
         self.store = store
@@ -380,41 +384,45 @@ public struct ScheduleGridView: View {
         }
     }
 
-    // MARK: - 3. 左側節次與時間軸列 (等比填滿高度)
+    // MARK: - 3. 左側節次與時間軸列 (等比填滿高度、清晰大字)
 
     private func periodsColumnView(cellHeight: CGFloat) -> some View {
-        let periodNumSize: CGFloat = min(max(cellHeight * 0.28, 12.0), 16.0)
-        let timeFontSize: CGFloat = min(max(cellHeight * 0.17, 7.5), 10.0)
+        let periodNumSize: CGFloat = min(max(cellHeight * 0.28, 13.0), 17.0)
+        let timeFontSize: CGFloat = min(max(cellHeight * 0.19, 9.5), 12.0)
 
         return VStack(spacing: 0) {
             ForEach(activePeriods) { period in
-                VStack(spacing: 1.5) {
+                VStack(spacing: 2) {
                     Text(period.shortName)
-                        .font(.system(size: periodNumSize, weight: .heavy, design: .rounded))
+                        .font(.system(size: periodNumSize, weight: .black, design: .rounded))
                         .foregroundStyle(.primary)
 
-                    VStack(spacing: 0) {
+                    VStack(spacing: 0.5) {
                         Text(period.startTime.formatted)
+                            .font(.system(size: timeFontSize, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.primary.opacity(0.9))
+
                         Text(period.endTime.formatted)
+                            .font(.system(size: timeFontSize * 0.92, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
                     }
-                    .font(.system(size: timeFontSize, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary.opacity(0.85))
                 }
                 .frame(width: timeColumnWidth, height: cellHeight)
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .overlay(
                     Rectangle()
                         .frame(height: 0.5)
-                        .foregroundStyle(Color.primary.opacity(0.06)),
+                        .foregroundStyle(Color.primary.opacity(0.08)),
                     alignment: .bottom
                 )
             }
         }
         .overlay(
             Rectangle()
-                .frame(width: 0.8)
-                .foregroundStyle(Color.primary.opacity(0.12)),
+                .frame(width: 1.0)
+                .foregroundStyle(Color.primary.opacity(0.14)),
             alignment: .trailing
         )
     }
@@ -449,7 +457,7 @@ public struct ScheduleGridView: View {
                 }
             }
 
-            // 頂層：課程卡片（精確跨節、絕對錨定定位、無抖動上下手柄）
+            // 頂層：課程卡片（精確跨節、絕對錨定定位、支援整卡拖曳平移與邊框手柄縮放）
             ForEach(store.courses.filter { $0.dayOfWeek == day }) { course in
                 if let startIndex = settings.activeIndexOfPeriod(id: course.startPeriodId),
                    let endIndex = settings.activeIndexOfPeriod(id: course.endPeriodId) {
@@ -461,11 +469,13 @@ public struct ScheduleGridView: View {
                     let topY = CGFloat(minIndex) * cellHeight + 1.5
                     let baseHeight = CGFloat(spanCount) * cellHeight - 3.0
 
-                    // 拖曳狀態計算：使用頂部絕對錨定，徹底杜絕中心點位移抖動
+                    // 拖曳狀態計算：支援整卡平移與頂底部縮放，徹底杜絕中心點位移抖動
                     let isDraggingBottom = (draggingBottomCourseId == course.id)
                     let isDraggingTop = (draggingTopCourseId == course.id)
+                    let isDraggingWhole = (draggingWholeCourseId == course.id)
+
                     let actualHeight = max(baseHeight + (isDraggingBottom ? dragBottomOffset : 0) - (isDraggingTop ? dragTopOffset : 0), cellHeight - 3.0)
-                    let actualY = topY + (isDraggingTop ? dragTopOffset : 0)
+                    let actualY = topY + (isDraggingWhole ? dragWholeOffset : (isDraggingTop ? dragTopOffset : 0))
 
                     CourseBlockCard(
                         course: course,
@@ -473,6 +483,7 @@ public struct ScheduleGridView: View {
                         width: columnWidth - 3.0,
                         height: actualHeight,
                         isSelected: selectedCourseId == course.id,
+                        isDraggingWhole: isDraggingWhole,
                         onTap: {
                             if selectedCourseId == course.id {
                                 courseToEdit = course
@@ -480,6 +491,14 @@ public struct ScheduleGridView: View {
                                 selectedCourseId = course.id
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             }
+                        },
+                        onWholeDragChanged: { deltaY in
+                            draggingWholeCourseId = course.id
+                            dragWholeOffset = deltaY
+                            handleHapticStepChange(deltaY: deltaY, cellHeight: cellHeight)
+                        },
+                        onWholeDragEnded: { deltaY in
+                            commitWholeDrag(course: course, deltaY: deltaY, currentStartIndex: minIndex, spanCount: spanCount, cellHeight: cellHeight)
                         },
                         onTopDragChanged: { deltaY in
                             draggingTopCourseId = course.id
@@ -499,6 +518,7 @@ public struct ScheduleGridView: View {
                         }
                     )
                     .offset(x: 1.5, y: actualY)
+                    .zIndex(isDraggingWhole ? 10 : (selectedCourseId == course.id ? 5 : 1))
                     .contextMenu {
                         Button {
                             courseToEdit = course
@@ -525,6 +545,24 @@ public struct ScheduleGridView: View {
         if step != currentDragStep {
             currentDragStep = step
             UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
+
+    private func commitWholeDrag(course: Course, deltaY: CGFloat, currentStartIndex: Int, spanCount: Int, cellHeight: CGFloat) {
+        draggingWholeCourseId = nil
+        dragWholeOffset = 0
+        currentDragStep = 0
+
+        let periodSteps = Int(round(deltaY / cellHeight))
+        let maxStartIndex = max(0, activePeriods.count - spanCount)
+        let newStartIndex = max(0, min(currentStartIndex + periodSteps, maxStartIndex))
+        let newEndIndex = newStartIndex + spanCount - 1
+
+        if newStartIndex < activePeriods.count && newEndIndex < activePeriods.count {
+            let newStartPeriodId = activePeriods[newStartIndex].id
+            let newEndPeriodId = activePeriods[newEndIndex].id
+            store.updatePeriodRange(courseId: course.id, startPeriodId: newStartPeriodId, endPeriodId: newEndPeriodId)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
     }
 
@@ -571,7 +609,7 @@ public struct ScheduleGridView: View {
     }
 }
 
-// MARK: - 現代高校質感課程卡片（自適應大字居中 + 極粗圓潤字重 + 醒目獨立教室膠囊 + 無抖動手柄）
+// MARK: - 現代高校質感課程卡片（自適應大字居中 + 極粗圓潤字重 + 半透明漸層美學 + 整卡平移與邊框手柄）
 
 struct CourseBlockCard: View {
     let course: Course
@@ -579,7 +617,10 @@ struct CourseBlockCard: View {
     let width: CGFloat
     let height: CGFloat
     let isSelected: Bool
+    let isDraggingWhole: Bool
     let onTap: () -> Void
+    let onWholeDragChanged: (CGFloat) -> Void
+    let onWholeDragEnded: (CGFloat) -> Void
     let onTopDragChanged: (CGFloat) -> Void
     let onTopDragEnded: (CGFloat) -> Void
     let onBottomDragChanged: (CGFloat) -> Void
@@ -624,101 +665,129 @@ struct CourseBlockCard: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 卡片本體按鈕
-            Button(action: onTap) {
-                ZStack {
-                    // 柔和雙色微粉彩漸層背景（告別 macOS 冷淡灰暗）
-                    RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    course.color.opacity(0.24),
-                                    course.color.opacity(0.13)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+            // 卡片本體 (點擊選中/編輯，按住直接上下拖曳平移整門課程)
+            ZStack {
+                // 半透明多階漸層背景（富有光澤與通透感，告別單調色塊）
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                course.color.opacity(0.38),
+                                course.color.opacity(0.20),
+                                course.color.opacity(0.08)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
+                    )
 
-                    // 核心排版：完全水平垂直居中對稱，自適應字級與大字重
-                    VStack(spacing: elementSpacing) {
-                        Spacer(minLength: 0)
+                // 核心排版：完全水平垂直居中對稱，自適應字級與大字重
+                VStack(spacing: elementSpacing) {
+                    Spacer(minLength: 0)
 
-                        // 1. 課程名稱 (自適應大字、超重圓潤、多行優化)
-                        Text(course.name)
-                            .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(height > 55 ? 2 : 1)
-                            .lineSpacing(1.5)
-                            .minimumScaleFactor(0.72)
-                            .padding(.horizontal, max(3.0 * widthScale, 2.0))
+                    // 1. 課程名稱 (自適應大字、超重圓潤、多行優化)
+                    Text(course.name)
+                        .font(.system(size: titleFontSize, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(height > 55 ? 2 : 1)
+                        .lineSpacing(1.5)
+                        .minimumScaleFactor(0.72)
+                        .padding(.horizontal, max(3.0 * widthScale, 2.0))
 
-                        // 2. 核心醒目獨立教室膠囊標籤 (極黑字重、自適應內距)
-                        if !course.classroom.isEmpty {
-                            HStack(spacing: 3) {
-                                Image(systemName: "location.fill")
-                                    .font(.system(size: classroomFontSize * 0.72, weight: .bold))
-                                Text(course.classroom)
-                                    .font(.system(size: classroomFontSize, weight: .black, design: .rounded))
-                            }
-                            .foregroundStyle(course.color)
-                            .padding(.horizontal, max(6.0 * widthScale, 4.5))
-                            .padding(.vertical, max(2.5 * heightScale, 1.8))
-                            .background(
-                                Capsule()
-                                    .fill(course.color.opacity(0.24))
-                            )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                    // 2. 核心醒目獨立教室膠囊標籤 (極黑字重、自適應內距、半透明微膠囊)
+                    if !course.classroom.isEmpty {
+                        HStack(spacing: 3) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: classroomFontSize * 0.72, weight: .bold))
+                            Text(course.classroom)
+                                .font(.system(size: classroomFontSize, weight: .black, design: .rounded))
                         }
-
-                        // 3. 授課教師與學分微標籤 (卡片高度充裕時居中呈現)
-                        if height >= 62 && (!course.teacher.isEmpty || !course.credits.isEmpty) {
-                            HStack(spacing: 3) {
-                                if !course.teacher.isEmpty {
-                                    Text(course.teacher)
-                                        .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                if !course.teacher.isEmpty && !course.credits.isEmpty {
-                                    Text("•")
-                                        .font(.system(size: metaFontSize * 0.9, weight: .black, design: .rounded))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                if !course.credits.isEmpty {
-                                    Text(course.credits)
-                                        .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.secondary.opacity(0.88))
-                                        .lineLimit(1)
-                                }
-                            }
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        }
-
-                        Spacer(minLength: 0)
+                        .foregroundStyle(course.color)
+                        .padding(.horizontal, max(6.0 * widthScale, 4.5))
+                        .padding(.vertical, max(2.5 * heightScale, 1.8))
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            course.color.opacity(0.32),
+                                            course.color.opacity(0.20)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     }
-                    .padding(3)
+
+                    // 3. 授課教師與學分微標籤 (卡片高度充裕時居中呈現)
+                    if height >= 62 && (!course.teacher.isEmpty || !course.credits.isEmpty) {
+                        HStack(spacing: 3) {
+                            if !course.teacher.isEmpty {
+                                Text(course.teacher)
+                                    .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            if !course.teacher.isEmpty && !course.credits.isEmpty {
+                                Text("•")
+                                    .font(.system(size: metaFontSize * 0.9, weight: .black, design: .rounded))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            if !course.credits.isEmpty {
+                                Text(course.credits)
+                                    .font(.system(size: metaFontSize, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.secondary.opacity(0.88))
+                                    .lineLimit(1)
+                            }
+                        }
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    }
+
+                    Spacer(minLength: 0)
                 }
-                .frame(width: width, height: height)
-                .overlay(
-                    RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                        .stroke(
-                            isSelected ? course.color : course.color.opacity(0.38),
-                            lineWidth: isSelected ? 2.5 : 1.0
-                        )
-                )
-                .shadow(
-                    color: isSelected ? course.color.opacity(0.28) : Color.clear,
-                    radius: 6,
-                    x: 0,
-                    y: 2
-                )
-                .clipped()
+                .padding(3)
             }
-            .buttonStyle(.plain)
+            .frame(width: width, height: height)
+            .overlay(
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                course.color.opacity(isSelected ? 0.95 : 0.60),
+                                course.color.opacity(isSelected ? 0.65 : 0.25)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: isSelected ? 2.5 : 1.2
+                    )
+            )
+            .shadow(
+                color: isDraggingWhole ? course.color.opacity(0.45) : (isSelected ? course.color.opacity(0.30) : Color.black.opacity(0.04)),
+                radius: isDraggingWhole ? 12 : (isSelected ? 6 : 2),
+                x: 0,
+                y: isDraggingWhole ? 6 : 2
+            )
+            .scaleEffect(isDraggingWhole ? 1.03 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isDraggingWhole)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onTap()
+            }
+            .gesture(
+                DragGesture(minimumDistance: 5, coordinateSpace: .named("ScheduleGridSpace"))
+                    .onChanged { value in
+                        onWholeDragChanged(value.translation.height)
+                    }
+                    .onEnded { value in
+                        onWholeDragEnded(value.translation.height)
+                    }
+            )
 
             // MARK: 選中狀態下的上下邊框拖曳手柄 (使用全域命名網格座標空間，徹底消除抖動)
             if isSelected {

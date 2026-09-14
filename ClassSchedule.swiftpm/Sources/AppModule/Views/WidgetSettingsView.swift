@@ -144,9 +144,11 @@ public struct WidgetSettingsView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 5)
 
         case .accessory:
-            accessoryWidgetView(targetCourse: targetCourse, isCurrent: current != nil)
+            let isTodayEmpty = todayList.isEmpty
+            let isTodayFinished = !todayList.isEmpty && current == nil && next == nil
+            accessoryWidgetView(targetCourse: targetCourse, isCurrent: current != nil, isTodayFinished: isTodayFinished, isTodayEmpty: isTodayEmpty)
                 .frame(width: 160, height: 60)
-                .background(Color.black.opacity(0.75))
+                .background(Color.black.opacity(0.85))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
@@ -173,8 +175,9 @@ public struct WidgetSettingsView: View {
                     Spacer()
 
                     if settings.showPeriodTime {
-                        Text(course.periodSpanString)
-                            .font(.system(size: 9, weight: .medium))
+                        Text(course.timeRangeString)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -242,10 +245,11 @@ public struct WidgetSettingsView: View {
                     VStack(spacing: 5) {
                         ForEach(todayList.prefix(3)) { c in
                             HStack(spacing: 6) {
-                                Text(c.periodSpanString)
-                                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                                    .frame(width: 50, alignment: .leading)
-                                    .foregroundStyle(.secondary)
+                                Text(c.timeRangeString)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .monospacedDigit()
+                                    .frame(width: 82, alignment: .leading)
+                                    .foregroundStyle(.primary)
 
                                 Text(c.name)
                                     .font(.system(size: 11, weight: .semibold))
@@ -305,11 +309,12 @@ public struct WidgetSettingsView: View {
 
                         if let next = next {
                             Text("倒數 \(next.minutesUntil) 分鐘上課")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.system(size: 10.5, weight: .bold))
                                 .foregroundStyle(.orange)
                         } else {
                             Text(course.timeRangeString)
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                                .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -338,11 +343,18 @@ public struct WidgetSettingsView: View {
 
                         Spacer()
 
-                        Text(course.periodSpanString)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        HStack(spacing: 5) {
+                            Text(course.periodSpanString)
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            Text("·")
+                                .font(.system(size: 9, weight: .black))
+                            Text(course.timeRangeString)
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -403,10 +415,11 @@ public struct WidgetSettingsView: View {
                 VStack(spacing: 6) {
                     ForEach(todayList.prefix(5)) { c in
                         HStack(spacing: 8) {
-                            Text(c.periodSpanString)
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .frame(width: 58, alignment: .leading)
-                                .foregroundStyle(.secondary)
+                            Text(c.timeRangeString)
+                                .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .frame(width: 86, alignment: .leading)
+                                .foregroundStyle(.primary)
 
                             Text(c.name)
                                 .font(.system(size: 12, weight: .medium))
@@ -432,34 +445,51 @@ public struct WidgetSettingsView: View {
         .padding(14)
     }
 
-    // 鎖定畫面小組件
+    // 鎖定畫面小組件 (無多餘圖示、顯示完整時間範圍、支援全天結束樣式)
     @ViewBuilder
-    private func accessoryWidgetView(targetCourse: Course?, isCurrent: Bool) -> some View {
-        if let course = targetCourse {
-            HStack(spacing: 8) {
-                Image(systemName: "graduationcap.fill")
-                    .font(.system(size: 18))
+    private func accessoryWidgetView(targetCourse: Course?, isCurrent: Bool, isTodayFinished: Bool, isTodayEmpty: Bool) -> some View {
+        if isTodayFinished {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("當日課程已全部結束")
+                    .font(.system(size: 12.5, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
+                Text("今日所有課程已完成！")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(.horizontal, 10)
+        } else if isTodayEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("今日無排課")
+                    .font(.system(size: 12.5, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("享受美好自由時光")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(.horizontal, 10)
+        } else if let course = targetCourse {
+            VStack(alignment: .leading, spacing: 2.5) {
+                // 課程名稱 (無多餘圖示，大字清晰)
+                Text(course.name)
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(course.name)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
+                // 醒目教室代碼與完整時間範圍 (大字加粗)
+                HStack(spacing: 5) {
+                    Text(course.classroom)
+                        .font(.system(size: 12, weight: .black, design: .rounded))
+                        .foregroundStyle(.yellow)
 
-                    HStack(spacing: 4) {
-                        Text(course.classroom)
-                            .font(.system(size: 11, weight: .black, design: .rounded))
-                            .foregroundStyle(.yellow)
+                    Text("•")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundStyle(.white.opacity(0.6))
 
-                        Text("•")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.6))
-
-                        Text(course.startTime.formatted)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
+                    Text(course.timeRangeString)
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.92))
                 }
             }
             .padding(.horizontal, 10)
