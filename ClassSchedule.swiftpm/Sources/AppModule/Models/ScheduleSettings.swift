@@ -24,6 +24,9 @@ public struct ScheduleSettings: Codable, Equatable {
     /// 是否在格子內顯示授課教師
     public var showTeacher: Bool
 
+    /// 桌面小工具設定
+    public var widgetSettings: WidgetSettings
+
     public init(
         periods: [Period] = Period.asiaUniversityStandardPeriods,
         showMorningM: Bool = false,
@@ -31,7 +34,8 @@ public struct ScheduleSettings: Codable, Equatable {
         showEveningPeriods: Bool = false,
         showWeekend: Bool = false,
         showCredits: Bool = true,
-        showTeacher: Bool = true
+        showTeacher: Bool = true,
+        widgetSettings: WidgetSettings = WidgetSettings()
     ) {
         self.periods = periods.isEmpty ? Period.asiaUniversityStandardPeriods : periods
         self.showMorningM = showMorningM
@@ -40,6 +44,19 @@ public struct ScheduleSettings: Codable, Equatable {
         self.showWeekend = showWeekend
         self.showCredits = showCredits
         self.showTeacher = showTeacher
+        self.widgetSettings = widgetSettings
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.periods = try container.decodeIfPresent([Period].self, forKey: .periods) ?? Period.asiaUniversityStandardPeriods
+        self.showMorningM = try container.decodeIfPresent(Bool.self, forKey: .showMorningM) ?? false
+        self.showNoonN = try container.decodeIfPresent(Bool.self, forKey: .showNoonN) ?? true
+        self.showEveningPeriods = try container.decodeIfPresent(Bool.self, forKey: .showEveningPeriods) ?? false
+        self.showWeekend = try container.decodeIfPresent(Bool.self, forKey: .showWeekend) ?? false
+        self.showCredits = try container.decodeIfPresent(Bool.self, forKey: .showCredits) ?? true
+        self.showTeacher = try container.decodeIfPresent(Bool.self, forKey: .showTeacher) ?? true
+        self.widgetSettings = try container.decodeIfPresent(WidgetSettings.self, forKey: .widgetSettings) ?? WidgetSettings()
     }
 
     /// 目前實際參與渲染的活躍節次列表（自動過濾使用者未開啟的時段）

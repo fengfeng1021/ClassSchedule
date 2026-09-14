@@ -211,6 +211,11 @@ public final class CourseStore: ObservableObject {
         saveSettings()
     }
 
+    public func updateWidgetSettings(_ newSettings: WidgetSettings) {
+        self.settings.widgetSettings = newSettings
+        saveSettings()
+    }
+
     // MARK: - 輔助計算
 
     public func normalizedDayOfWeek(from date: Date = Date(), calendar: Calendar = .current) -> Int {

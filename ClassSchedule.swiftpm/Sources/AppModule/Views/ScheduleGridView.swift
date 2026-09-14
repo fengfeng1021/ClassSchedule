@@ -1,13 +1,23 @@
 import SwiftUI
 
+/// 應用程式頂部主分頁類型
+public enum AppMainTab: String, CaseIterable, Identifiable {
+    case schedule = "課表"
+    case widgetSettings = "小工具設定"
+
+    public var id: String { rawValue }
+}
+
 /// 全螢幕自適應免滑動課表主視圖：
 /// 1. 完全無 ScrollView，在 iPad 與 iPhone 上一屏全覽所有課程，無需滑動。
-/// 2. 支援點選空白格設課、課程上下邊框拖曳調整節次跨度（不被滑動搶走手勢）。
-/// 3. 右上角獨立「匯入課表」與「新增課程」兩大按鈕。
-/// 4. 現代大專院校課表質感，醒目教室膠囊標籤。
+/// 2. 徹底消除拖曳抖動：以命名網格座標空間與頂部錨定保證手勢平滑穩定。
+/// 3. 現代大專院校課表美學：大字居中、醒目獨立教室膠囊、柔和漸層粉彩質感。
+/// 4. 頂部雙分頁切換：[ 課表 | 小工具設定 ]。
+/// 5. 右上角獨立「匯入課表」與「新增課程」兩大按鈕。
 public struct ScheduleGridView: View {
     @ObservedObject var store: CourseStore
 
+    @State private var selectedTab: AppMainTab = .schedule
     @State private var currentDate = Date()
     @State private var courseToEdit: Course?
     @State private var courseToAddDayAndPeriod: (day: Int, periodId: String)?
@@ -17,11 +27,12 @@ public struct ScheduleGridView: View {
     @State private var showingImportSheet = false
     @State private var showingClearAlert = false
 
-    // 拖曳縮放即時位移
+    // 拖曳縮放即時位移與觸覺步進狀態
     @State private var draggingBottomCourseId: UUID?
     @State private var dragBottomOffset: CGFloat = 0
     @State private var draggingTopCourseId: UUID?
     @State private var dragTopOffset: CGFloat = 0
+    @State private var currentDragStep: Int = 0
 
     // 每 15 秒輕量更新一次目前時間與狀態
     private let timer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
@@ -50,99 +61,86 @@ public struct ScheduleGridView: View {
 
     public var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // MARK: 1. 頂部動態島風格教室速查橫幅
-                classroomBanner
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
-                    .padding(.bottom, 4)
-
-                // MARK: 2. 星期標頭行 (固定於頂部)
-                weekdayHeaderRow
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-
-                Divider()
-
-                // MARK: 3. 全螢幕自適應免滑動課表矩陣 (Zero ScrollView)
-                GeometryReader { geometry in
-                    let availableWidth = geometry.size.width
-                    let availableHeight = geometry.size.height
-                    let columnWidth = (availableWidth - timeColumnWidth) / CGFloat(visibleDays.count)
-                    let periodCount = max(activePeriods.count, 1)
-                    let cellHeight = availableHeight / CGFloat(periodCount)
-
-                    HStack(alignment: .top, spacing: 0) {
-                        // 左側：節次與時間標籤列
-                        periodsColumnView(cellHeight: cellHeight)
-
-                        // 右側：各星期課程格子矩陣
-                        HStack(alignment: .top, spacing: 0) {
-                            ForEach(visibleDays, id: \.self) { day in
-                                dayColumnView(day: day, columnWidth: columnWidth, cellHeight: cellHeight)
-                            }
-                        }
-                    }
-                    .frame(width: availableWidth, height: availableHeight)
+            Group {
+                if selectedTab == .schedule {
+                    scheduleMatrixContentView
+                } else {
+                    WidgetSettingsView(store: store)
                 }
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("課表")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // MARK: 左上角功能選項選單按鈕
+                // MARK: 頂部置中原生分頁切換 [ 課表 | 小工具設定 ]
+                ToolbarItem(placement: .principal) {
+                    Picker("主要頁面分頁", selection: $selectedTab) {
+                        ForEach(AppMainTab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 220)
+                }
+
+                // MARK: 左上角功能選項選單按鈕 (課表頁面專屬)
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button {
-                            showingSettingsSheet = true
-                        } label: {
-                            Label("課表自訂設定", systemImage: "gearshape")
-                        }
+                    if selectedTab == .schedule {
+                        Menu {
+                            Button {
+                                showingSettingsSheet = true
+                            } label: {
+                                Label("課表自訂設定", systemImage: "gearshape")
+                            }
 
-                        Button {
-                            toggleEveningPeriods()
-                        } label: {
-                            Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
-                        }
+                            Button {
+                                toggleEveningPeriods()
+                            } label: {
+                                Label(settings.showEveningPeriods ? "隱藏夜間時段 (10~14節)" : "顯示夜間時段 (10~14節)", systemImage: "moon.stars")
+                            }
 
-                        Button {
-                            toggleWeekend()
-                        } label: {
-                            Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
-                        }
+                            Button {
+                                toggleWeekend()
+                            } label: {
+                                Label(settings.showWeekend ? "隱藏週末 (僅顯示週一至五)" : "顯示週末 (週一至週日)", systemImage: "calendar")
+                            }
 
-                        Divider()
+                            Divider()
 
-                        Button(role: .destructive) {
-                            showingClearAlert = true
+                            Button(role: .destructive) {
+                                showingClearAlert = true
+                            } label: {
+                                Label("清空目前課表", systemImage: "trash")
+                            }
                         } label: {
-                            Label("清空目前課表", systemImage: "trash")
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 18, weight: .medium))
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 18, weight: .medium))
                     }
                 }
 
                 // MARK: 右上角兩個獨立分開的按鈕：「匯入課表」與「新增課程」
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 14) {
-                        // 按鈕一：匯入課表
-                        Button {
-                            showingImportSheet = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.down.doc")
-                                Text("匯入課表")
-                                    .font(.subheadline.weight(.medium))
+                    if selectedTab == .schedule {
+                        HStack(spacing: 14) {
+                            // 按鈕一：匯入課表
+                            Button {
+                                showingImportSheet = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.down.doc")
+                                    Text("匯入課表")
+                                        .font(.subheadline.weight(.medium))
+                                }
                             }
-                        }
 
-                        // 按鈕二：新增課程
-                        Button {
-                            courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .bold))
+                            // 按鈕二：新增課程
+                            Button {
+                                courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
                         }
                     }
                 }
@@ -178,6 +176,47 @@ public struct ScheduleGridView: View {
             }
             .onReceive(timer) { input in
                 currentDate = input
+            }
+        }
+    }
+
+    // MARK: - 課表主矩陣內容 (全螢幕自適應、零滑動)
+
+    private var scheduleMatrixContentView: some View {
+        VStack(spacing: 0) {
+            // 1. 頂部教室速查橫幅
+            classroomBanner
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 4)
+
+            // 2. 星期標頭行 (固定頂部)
+            weekdayHeaderRow
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+
+            Divider()
+
+            // 3. 全螢幕自適應免滑動課表矩陣 (Zero ScrollView)
+            GeometryReader { geometry in
+                let availableWidth = geometry.size.width
+                let availableHeight = geometry.size.height
+                let columnWidth = (availableWidth - timeColumnWidth) / CGFloat(visibleDays.count)
+                let periodCount = max(activePeriods.count, 1)
+                let cellHeight = availableHeight / CGFloat(periodCount)
+
+                HStack(alignment: .top, spacing: 0) {
+                    // 左側：節次與時間軸
+                    periodsColumnView(cellHeight: cellHeight)
+
+                    // 右側：各星期課程網格
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(visibleDays, id: \.self) { day in
+                            dayColumnView(day: day, columnWidth: columnWidth, cellHeight: cellHeight)
+                        }
+                    }
+                }
+                .frame(width: availableWidth, height: availableHeight)
+                .coordinateSpace(name: "ScheduleGridSpace")
             }
         }
     }
@@ -306,7 +345,7 @@ public struct ScheduleGridView: View {
 
     private var weekdayHeaderRow: some View {
         HStack(spacing: 0) {
-            // 左上角標題
+            // 左上角節次標題
             VStack(spacing: 1) {
                 Text("節次")
                     .font(.system(size: 10, weight: .bold))
@@ -375,11 +414,11 @@ public struct ScheduleGridView: View {
         )
     }
 
-    // MARK: - 4. 單日課程矩陣 (點選空白格設課 + 邊框拖曳上下擴展)
+    // MARK: - 4. 單日課程網格 (支援無抖動上下邊框拖曳調整)
 
     private func dayColumnView(day: Int, columnWidth: CGFloat, cellHeight: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            // 背景底層：各節次空白格線（點擊直接新增課程）
+            // 底層：空白格線（點選任一格可直接新增課程）
             VStack(spacing: 0) {
                 ForEach(activePeriods) { period in
                     Button {
@@ -405,7 +444,7 @@ public struct ScheduleGridView: View {
                 }
             }
 
-            // 頂層：課程卡片（精確跨節、支援無衝突上下邊框拖曳）
+            // 頂層：課程卡片（精確跨節、絕對錨定定位、無抖動上下手柄）
             ForEach(store.courses.filter { $0.dayOfWeek == day }) { course in
                 if let startIndex = settings.activeIndexOfPeriod(id: course.startPeriodId),
                    let endIndex = settings.activeIndexOfPeriod(id: course.endPeriodId) {
@@ -417,7 +456,7 @@ public struct ScheduleGridView: View {
                     let topY = CGFloat(minIndex) * cellHeight + 1.5
                     let baseHeight = CGFloat(spanCount) * cellHeight - 3.0
 
-                    // 拖曳中的臨時高度與位置計算
+                    // 拖曳狀態計算：使用頂部絕對錨定，徹底杜絕中心點位移抖動
                     let isDraggingBottom = (draggingBottomCourseId == course.id)
                     let isDraggingTop = (draggingTopCourseId == course.id)
                     let actualHeight = max(baseHeight + (isDraggingBottom ? dragBottomOffset : 0) - (isDraggingTop ? dragTopOffset : 0), cellHeight - 3.0)
@@ -425,6 +464,7 @@ public struct ScheduleGridView: View {
 
                     CourseBlockCard(
                         course: course,
+                        spanCount: spanCount,
                         width: columnWidth - 3.0,
                         height: actualHeight,
                         isSelected: selectedCourseId == course.id,
@@ -439,6 +479,7 @@ public struct ScheduleGridView: View {
                         onTopDragChanged: { deltaY in
                             draggingTopCourseId = course.id
                             dragTopOffset = deltaY
+                            handleHapticStepChange(deltaY: deltaY, cellHeight: cellHeight)
                         },
                         onTopDragEnded: { deltaY in
                             commitTopDrag(course: course, deltaY: deltaY, currentStartIndex: minIndex, cellHeight: cellHeight)
@@ -446,12 +487,13 @@ public struct ScheduleGridView: View {
                         onBottomDragChanged: { deltaY in
                             draggingBottomCourseId = course.id
                             dragBottomOffset = deltaY
+                            handleHapticStepChange(deltaY: deltaY, cellHeight: cellHeight)
                         },
                         onBottomDragEnded: { deltaY in
                             commitBottomDrag(course: course, deltaY: deltaY, currentEndIndex: maxIndex, cellHeight: cellHeight)
                         }
                     )
-                    .position(x: columnWidth / 2, y: actualY + actualHeight / 2)
+                    .offset(x: 1.5, y: actualY)
                     .contextMenu {
                         Button {
                             courseToEdit = course
@@ -471,11 +513,20 @@ public struct ScheduleGridView: View {
         .frame(width: columnWidth)
     }
 
-    // MARK: - 5. 邊框拖曳上下擴展節次邏輯
+    // MARK: - 5. 拖曳步進觸覺與吸附邏輯
+
+    private func handleHapticStepChange(deltaY: CGFloat, cellHeight: CGFloat) {
+        let step = Int(round(deltaY / cellHeight))
+        if step != currentDragStep {
+            currentDragStep = step
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
 
     private func commitBottomDrag(course: Course, deltaY: CGFloat, currentEndIndex: Int, cellHeight: CGFloat) {
         draggingBottomCourseId = nil
         dragBottomOffset = 0
+        currentDragStep = 0
 
         let periodSteps = Int(round(deltaY / cellHeight))
         let newEndIndex = max(0, min(currentEndIndex + periodSteps, activePeriods.count - 1))
@@ -490,6 +541,7 @@ public struct ScheduleGridView: View {
     private func commitTopDrag(course: Course, deltaY: CGFloat, currentStartIndex: Int, cellHeight: CGFloat) {
         draggingTopCourseId = nil
         dragTopOffset = 0
+        currentDragStep = 0
 
         let periodSteps = Int(round(deltaY / cellHeight))
         let newStartIndex = max(0, min(currentStartIndex + periodSteps, activePeriods.count - 1))
@@ -501,7 +553,7 @@ public struct ScheduleGridView: View {
         }
     }
 
-    // MARK: - 快捷切換動作
+    // MARK: - 快捷動作
 
     private func toggleEveningPeriods() {
         store.settings.showEveningPeriods.toggle()
@@ -514,10 +566,11 @@ public struct ScheduleGridView: View {
     }
 }
 
-// MARK: - 現代高校質感課程卡片（醒目教室膠囊 + 上下拖曳柄）
+// MARK: - 現代高校質感課程卡片（大字居中 + 獨立教室膠囊 + 無抖動手柄）
 
 struct CourseBlockCard: View {
     let course: Course
+    let spanCount: Int
     let width: CGFloat
     let height: CGFloat
     let isSelected: Bool
@@ -529,103 +582,144 @@ struct CourseBlockCard: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 卡片本體
+            // 卡片本體按鈕
             Button(action: onTap) {
-                ZStack(alignment: .topLeading) {
-                    // 柔和微透背景
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(course.color.opacity(0.16))
+                ZStack {
+                    // 柔和雙色微粉彩漸層背景（告別 macOS 冷淡灰暗）
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    course.color.opacity(0.22),
+                                    course.color.opacity(0.13)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
 
-                    // 左側質感色彩指示條
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .fill(course.color)
-                        .frame(width: 3.5)
+                    // 核心排版：完全水平垂直居中對稱，告別全部堆在左上角
+                    VStack(spacing: height > 60 ? 4 : 2) {
+                        Spacer(minLength: 0)
 
-                    // 核心內容文字
-                    VStack(alignment: .leading, spacing: 2) {
-                        // 課程名稱
+                        // 1. 課程名稱 (居中加粗清晰易讀)
                         Text(course.name)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: spanCount > 1 ? 11.5 : 10.5, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
-                            .lineLimit(height > 50 ? 2 : 1)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(height > 55 ? 2 : 1)
+                            .padding(.horizontal, 3)
 
-                        // 教室膠囊 (核心醒目標記)
-                        HStack(spacing: 2) {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 8))
-                            Text(course.classroom)
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                        }
-                        .foregroundStyle(course.color)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(course.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .lineLimit(1)
-
-                        // 授課教師與學分 (卡片高度充裕時自動呈現)
-                        if height >= 58 && !course.teacher.isEmpty {
-                            Text(course.teacher)
-                                .font(.system(size: 8.5))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                        // 2. 核心醒目獨立教室膠囊標籤
+                        if !course.classroom.isEmpty {
+                            HStack(spacing: 2.5) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 7.5))
+                                Text(course.classroom)
+                                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            }
+                            .foregroundStyle(course.color)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(course.color.opacity(0.22))
+                            )
+                            .lineLimit(1)
                         }
 
-                        if height >= 78 && !course.credits.isEmpty {
-                            Text(course.credits)
-                                .font(.system(size: 8))
-                                .foregroundStyle(.secondary.opacity(0.8))
-                                .lineLimit(1)
+                        // 3. 授課教師與學分微標籤 (卡片高度充裕時居中呈現)
+                        if height >= 65 && (!course.teacher.isEmpty || !course.credits.isEmpty) {
+                            HStack(spacing: 3) {
+                                if !course.teacher.isEmpty {
+                                    Text(course.teacher)
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                if !course.teacher.isEmpty && !course.credits.isEmpty {
+                                    Text("•")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                if !course.credits.isEmpty {
+                                    Text(course.credits)
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.secondary.opacity(0.85))
+                                        .lineLimit(1)
+                                }
+                            }
+                            .lineLimit(1)
                         }
+
+                        Spacer(minLength: 0)
                     }
-                    .padding(.leading, 7)
-                    .padding(.trailing, 2)
-                    .padding(.vertical, 3)
+                    .padding(3)
                 }
                 .frame(width: width, height: height)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(isSelected ? course.color : course.color.opacity(0.45), lineWidth: isSelected ? 2.0 : 0.8)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            isSelected ? course.color : course.color.opacity(0.35),
+                            lineWidth: isSelected ? 2.0 : 0.8
+                        )
+                )
+                .shadow(
+                    color: isSelected ? course.color.opacity(0.25) : Color.clear,
+                    radius: 5,
+                    x: 0,
+                    y: 2
                 )
                 .clipped()
             }
             .buttonStyle(.plain)
 
-            // MARK: 選中狀態下的上下邊框拖曳手柄 (因為無 ScrollView，拖曳手勢 100% 靈敏)
+            // MARK: 選中狀態下的上下邊框拖曳手柄 (使用全域命名網格座標空間，徹底消除抖動)
             if isSelected {
                 VStack {
                     // 頂部拖曳把手
-                    Capsule()
-                        .fill(course.color)
-                        .frame(width: 24, height: 4)
-                        .padding(.top, 2)
-                        .contentShape(Rectangle().inset(by: -10))
-                        .gesture(
-                            DragGesture(minimumDistance: 2)
-                                .onChanged { value in
-                                    onTopDragChanged(value.translation.height)
-                                }
-                                .onEnded { value in
-                                    onTopDragEnded(value.translation.height)
-                                }
-                        )
+                    HStack {
+                        Spacer()
+                        Capsule()
+                            .fill(course.color)
+                            .frame(width: 22, height: 4)
+                            .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                        Spacer()
+                    }
+                    .frame(height: 16)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .named("ScheduleGridSpace"))
+                            .onChanged { value in
+                                onTopDragChanged(value.translation.height)
+                            }
+                            .onEnded { value in
+                                onTopDragEnded(value.translation.height)
+                            }
+                    )
 
                     Spacer()
 
                     // 底部拖曳把手
-                    Capsule()
-                        .fill(course.color)
-                        .frame(width: 24, height: 4)
-                        .padding(.bottom, 2)
-                        .contentShape(Rectangle().inset(by: -10))
-                        .gesture(
-                            DragGesture(minimumDistance: 2)
-                                .onChanged { value in
-                                    onBottomDragChanged(value.translation.height)
-                                }
-                                .onEnded { value in
-                                    onBottomDragEnded(value.translation.height)
-                                }
-                        )
+                    HStack {
+                        Spacer()
+                        Capsule()
+                            .fill(course.color)
+                            .frame(width: 22, height: 4)
+                            .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                        Spacer()
+                    }
+                    .frame(height: 16)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .named("ScheduleGridSpace"))
+                            .onChanged { value in
+                                onBottomDragChanged(value.translation.height)
+                            }
+                            .onEnded { value in
+                                onBottomDragEnded(value.translation.height)
+                            }
+                    )
                 }
                 .frame(width: width, height: height)
             }
