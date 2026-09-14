@@ -249,20 +249,20 @@ public struct AddWidgetGuideSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                // 排查點 1：SideStore 必須簽名擴展
+                // 排查點 1：SideStore 安裝時務必保留擴展 (Keep App Extensions)
                 troubleshootingRow(
                     badge: "重點 1",
-                    title: "SideStore 必須開啟「簽名 App 擴展」",
-                    content: "小工具屬於獨立 Extension（需占用 1 個 App ID）。免費開發者帳號共可簽 3 個（SideStore 占 1 個、課表主程式 1 個、小工具 1 個，正好滿額）。若 SideStore 設定關閉了擴展簽名，小工具擴展會被刪除！\n👉 解法：開啟 SideStore -> Settings -> 確保「Sign App Extensions (簽名擴展)」已打開，然後重新更新安裝課表。"
+                    title: "SideStore 務必選擇「Keep App Extensions」",
+                    content: "小工具屬於獨立 Widget Extension（需占用 1 個 App ID，免費帳號共可簽 3 個，剛好滿額）。\n👉 解法：在 SideStore 安裝或更新 IPA 時，若跳出擴展提示，務必點選「Keep App Extensions (保留擴展)」或「Use Main Profile」！若選了「Remove App Extensions」，小工具就會被 SideStore 剔除。\n👉 若 App ID 滿額：可至 SideStore 底部「DIAGNOSTICS」->「Experimental Features」清理過期 App ID。"
                 )
 
                 Divider()
 
-                // 排查點 2：iOS 系統快取重新索引（最常見、最有效！）
+                // 排查點 2：iPadOS / iOS 系統快取重新索引（最常見、最有效！）
                 troubleshootingRow(
                     badge: "重點 2",
-                    title: "強制觸發 iOS 重整小工具快取庫（最靈驗）",
-                    content: "自簽 App 安裝後，iOS 系統進程（pkd）經常存在快取延遲，不會立即把新 App 加入小工具搜尋索引。\n👉 解法：至 iPhone「設定 -> 一般 -> 語言與地區」，隨意新增或切換一種語言（或重開機重啟 iPhone），iOS 就會立刻被動強制重新掃描所有 App，即可立即搜尋到「課表」！"
+                    title: "強制觸發 iPadOS 重整小工具快取庫（最靈驗）",
+                    content: "自簽 App 安裝後，系統進程（pkd）經常存在快取延遲，不會立即把新 App 加入小工具搜尋索引。\n👉 解法：至 iPad「設定 -> 一般 -> 語言與地區」，隨意新增或切換一種語言（或重新開機 iPad），系統就會立刻被動強制重新掃描所有 App，桌面小工具清單即可立即出現「課表」！"
                 )
 
                 Divider()

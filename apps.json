@@ -10,15 +10,23 @@
       "bundleIdentifier": "com.fengfeng.classschedule",
       "developerName": "fengfeng",
       "subtitle": "桌面小工具與 120Hz 質感課表",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "versionDate": "2026-09-14",
-      "versionDescription": "1. 徹底解決 iPhone 與 iPad 樣式差異：針對 iPhone 自動呈現 Apple 第一方動態液態玻璃 (.ultraThinMaterial) 圓盤底框，iPad 保持原生單層無重複外框\n2. 小工具設定頁面新增「快捷加入桌面小工具」一鍵直達功能（自動退回桌面長按加入）\n3. 內建 SideStore 找不到小工具專屬排查指南與小工具快取強制重整\n4. 增強 iOS App Extension 原生運行時連結庫 (rpath) 與資源封裝",
-      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.7/ClassSchedule.ipa",
+      "versionDescription": "1. 全面升級至 Xcode 16 (iOS 18 SDK) 與 Release 最佳化編譯，徹底啟動 iPadOS 18 官方原生動態液態玻璃與流體動態\n2. 工具列全面套用 Apple 官方 .bordered 圓形底盤規範，還原 Playground 1:1 單層質感\n3. SideStore 0.7.0 擴展專屬指引：在「Experimental Features」開啟「Use Main Profile for Extensions」即可完美支援小工具\n4. 小工具設定頁面新增「快捷加入桌面小工具」一鍵直達桌面",
+      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.8/ClassSchedule.ipa",
       "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、鎖定畫面）\n• 全域 120Hz ProMotion 超高刷新率優化\n• 原生質感設計與 iPad 原生工具列風格\n• 支援無感覆蓋更新，完美保留現有課表資料",
       "iconURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/AppIcon.png",
       "tintColor": "3478F6",
       "size": 15000000,
       "versions": [
+        {
+          "version": "1.0.8",
+          "date": "2026-09-14",
+          "localizedDescription": "1. 全面升級至 Xcode 16 (iOS 18 SDK) 與 Release 最佳化編譯，徹底啟動 iPadOS 18 官方原生動態液態玻璃與流體動態\n2. 工具列全面套用 Apple 官方 .bordered 圓形底盤規範，還原 Playground 1:1 單層質感\n3. SideStore 0.7.0 擴展專屬指引：在「Experimental Features」開啟「Use Main Profile for Extensions」即可完美支援小工具\n4. 小工具設定頁面新增「快捷加入桌面小工具」一鍵直達桌面",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.0.8/ClassSchedule.ipa",
+          "size": 15000000,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "1.0.7",
           "date": "2026-09-14",

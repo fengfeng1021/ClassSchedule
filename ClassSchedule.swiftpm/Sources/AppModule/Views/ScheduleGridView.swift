@@ -98,10 +98,10 @@ public struct ScheduleGridView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: isPad ? 220 : 185)
+                    .frame(width: isPad ? 260 : 185)
                 }
 
-                // 左上角選單按鈕（課表與小工具設定均可呼叫，依設備自適應單層動態液態玻璃）
+                // 左上角選單按鈕（Apple 原生單層液態玻璃圓形按鈕）
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Button {
@@ -167,11 +167,13 @@ public struct ScheduleGridView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .appleToolbarGlassCircle()
+                            .font(.system(size: 15, weight: .semibold))
                     }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.circle)
                 }
 
-                // MARK: 右上角 Apple 原生工具列按鈕（依設備自適應單層動態液態玻璃）
+                // MARK: 右上角 Apple 原生工具列按鈕（Apple 原生單層液態玻璃圓形按鈕）
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         if selectedTab == .schedule {
@@ -179,16 +181,20 @@ public struct ScheduleGridView: View {
                                 showingImportSheet = true
                             } label: {
                                 Image(systemName: "arrow.down.doc")
-                                    .appleToolbarGlassCircle()
+                                    .font(.system(size: 14.5, weight: .semibold))
                             }
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.circle)
                             .accessibilityLabel("匯入課表")
 
                             Button {
                                 courseToAddDayAndPeriod = (day: currentWeekday, periodId: activePeriods.first?.id ?? "1")
                             } label: {
                                 Image(systemName: "plus")
-                                    .appleToolbarGlassCircle()
+                                    .font(.system(size: 15, weight: .bold))
                             }
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.circle)
                             .accessibilityLabel("新增課程")
                         }
                     }
@@ -1033,35 +1039,6 @@ struct CourseBlockCard: View {
             Spacer(minLength: 0)
         }
         .padding(3)
-    }
-}
-
-// MARK: - Apple 原生動態液態玻璃工具列按鈕樣式
-// 在 iPadOS / Swift Playgrounds 上，系統導航列自帶原生圓形底盤，因此維持 content 原樣，絕不重複嵌套雙層框；
-// 在 iPhone (iOS) 上，系統預設為裸圖示無底框，因此套用 Apple 第一方標準動態液態玻璃 (.ultraThinMaterial) 圓盤。
-public struct AppleToolbarGlassCircleModifier: ViewModifier {
-    public func body(content: Content) -> some View {
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            content
-        } else {
-            content
-                .font(.system(size: 14.5, weight: .semibold))
-                .foregroundStyle(.primary)
-                .frame(width: 36, height: 36)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.8)
-                )
-                .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 1.5)
-                .contentShape(Circle())
-        }
-    }
-}
-
-extension View {
-    public func appleToolbarGlassCircle() -> some View {
-        modifier(AppleToolbarGlassCircleModifier())
     }
 }
 

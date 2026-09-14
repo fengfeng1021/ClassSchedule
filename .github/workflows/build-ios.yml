@@ -12,18 +12,26 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Select Xcode Version
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+      - name: Verify and Select Xcode 16 (iOS 18 SDK)
+        run: |
+          for xcode in /Applications/Xcode_16*.app; do
+            if [ -d "$xcode/Contents/Developer" ]; then
+              sudo xcode-select -s "$xcode/Contents/Developer"
+              break
+            fi
+          done
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
 
       - name: Build with xcodebuild
         run: |
           cd ClassSchedule.swiftpm
-          xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' -derivedDataPath ./build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' -configuration Release -derivedDataPath ./build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
       - name: Package IPA
         run: |
