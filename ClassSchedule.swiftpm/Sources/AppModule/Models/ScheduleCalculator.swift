@@ -80,6 +80,40 @@ public struct ScheduleCalculator {
         return self.courses(in: courses, for: dayOfWeek)
     }
 
+    /// 今日是否已經「完全結束」：今天有課，但已經沒有正在上、也沒有接下來要上的課。
+    ///
+    /// 這個判斷很重要：晚上 9 點時若仍把 `todayCourses.first` 當成主角，
+    /// 小工具就會顯示早上已經上完的第一堂課（看起來像「時間沒同步」）。
+    public static func isDayFinished(in courses: [Course], at date: Date = Date(), calendar: Calendar = .current) -> Bool {
+        let list = todayCourses(in: courses, at: date, calendar: calendar)
+        guard !list.isEmpty else { return false }
+        return currentCourse(in: courses, at: date, calendar: calendar) == nil
+            && nextCourse(in: courses, at: date, calendar: calendar) == nil
+    }
+
+    /// 取得「今天之後」最近的一堂課，用於今日已結束或今日無課時顯示下一堂。
+    /// 回傳值同時包含該堂課實際發生的日期，讓顯示層可標示「明天」「週三」。
+    public static func nextUpcomingCourse(
+        in courses: [Course],
+        at date: Date = Date(),
+        calendar: Calendar = .current
+    ) -> (course: Course, date: Date)? {
+        for dayOffset in 1...7 {
+            guard let candidateDate = calendar.date(byAdding: .day, value: dayOffset, to: date) else { continue }
+            let dayOfWeek = normalizedDayOfWeek(from: candidateDate, calendar: calendar)
+            if let first = self.courses(in: courses, for: dayOfWeek).first {
+                return (first, candidateDate)
+            }
+        }
+        return nil
+    }
+
+    /// 取得隔日零點，用於小工具時間軸在跨日時重新調度。
+    public static func startOfNextDay(after date: Date = Date(), calendar: Calendar = .current) -> Date {
+        let startOfToday = calendar.startOfDay(for: date)
+        return calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? date.addingTimeInterval(86400)
+    }
+
     /// 取得今日課程時間總進度（精確至分，每過一分鐘動態更新百分比）
     public static func todayProgress(in courses: [Course], at date: Date = Date(), calendar: Calendar = .current) -> DayProgressInfo {
         let list = todayCourses(in: courses, at: date, calendar: calendar)

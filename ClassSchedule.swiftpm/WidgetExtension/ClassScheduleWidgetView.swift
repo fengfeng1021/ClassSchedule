@@ -128,7 +128,7 @@ public struct ClassScheduleWidgetEntryView: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.primary)
                         Spacer()
-                        Text("共\(entry.todayCourses.count)堂")
+                        Text("還剩\(entry.remainingTodayCourses.count)堂")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -139,7 +139,7 @@ public struct ClassScheduleWidgetEntryView: View {
                         emptyWidgetContent
                     } else {
                         VStack(spacing: 5) {
-                            ForEach(entry.todayCourses.prefix(2)) { c in
+                            ForEach(entry.remainingTodayCourses.prefix(2)) { c in
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 4) {
                                         Circle()
@@ -319,7 +319,7 @@ public struct ClassScheduleWidgetEntryView: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.primary)
                         Spacer()
-                        Text("共 \(entry.todayCourses.count) 堂課")
+                        Text("還剩 \(entry.remainingTodayCourses.count) 堂課")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -328,7 +328,7 @@ public struct ClassScheduleWidgetEntryView: View {
                         emptyWidgetContent
                     } else {
                         VStack(spacing: 5) {
-                            ForEach(entry.todayCourses.prefix(2)) { c in
+                            ForEach(entry.remainingTodayCourses.prefix(2)) { c in
                                 HStack(spacing: 4) {
                                     if settings.showPeriodTime {
                                         Text(c.timeRangeString)
@@ -491,7 +491,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     emptyWidgetContent
                 } else {
                     VStack(spacing: 6) {
-                        ForEach(entry.todayCourses.prefix(4)) { c in
+                        ForEach(entry.remainingTodayCourses.prefix(4)) { c in
                             HStack(spacing: 8) {
                                 if settings.showPeriodTime {
                                     Text(c.timeRangeString)
@@ -528,7 +528,7 @@ public struct ClassScheduleWidgetEntryView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text("共 \(entry.todayCourses.count) 堂課")
+                    Text("還剩 \(entry.remainingTodayCourses.count) 堂課")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -542,7 +542,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     emptyWidgetContent
                 } else {
                     VStack(spacing: 6) {
-                        ForEach(entry.todayCourses.prefix(5)) { c in
+                        ForEach(entry.remainingTodayCourses.prefix(5)) { c in
                             HStack(spacing: 8) {
                                 if settings.showPeriodTime {
                                     Text(c.timeRangeString)
@@ -630,7 +630,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     emptyWidgetContent
                 } else {
                     VStack(spacing: 6) {
-                        ForEach(entry.todayCourses.prefix(4)) { c in
+                        ForEach(entry.remainingTodayCourses.prefix(4)) { c in
                             HStack(spacing: 8) {
                                 if settings.showPeriodTime {
                                     Text(c.timeRangeString)
@@ -762,16 +762,26 @@ public struct ClassScheduleWidgetEntryView: View {
 
     private var emptyWidgetContent: some View {
         VStack(spacing: 6) {
-            Image(systemName: "sun.max.fill")
+            Image(systemName: entry.isTodayFinished ? "checkmark.circle.fill" : "sun.max.fill")
                 .font(.system(size: 24))
-                .foregroundStyle(.orange)
-            Text("今日無課表安排")
+                .foregroundStyle(entry.isTodayFinished ? Color.green : Color.orange)
+
+            Text(entry.isTodayFinished ? "今日課程已結束" : "今日無課表安排")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.primary)
-            if entry.settings.showInspirationalQuote {
+
+            if let next = entry.nextCourseAfterToday, let dayLabel = entry.nextCourseDayLabel {
+                Text("\(dayLabel) \(next.startTime.formatted) \(next.classroom.isEmpty ? next.name : next.classroom)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, 6)
+            } else if entry.settings.showInspirationalQuote {
                 Text("享受美好的自由時光吧！")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

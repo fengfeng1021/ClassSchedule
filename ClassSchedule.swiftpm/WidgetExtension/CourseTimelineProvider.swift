@@ -11,6 +11,11 @@ public struct CourseTimelineEntry: TimelineEntry {
     public let progress: DayProgressInfo
     public let settings: WidgetSettings
 
+    /// 今日之後最近的一堂課（今日已結束或今日無課時顯示用）。
+    public let nextCourseAfterToday: Course?
+    /// `nextCourseAfterToday` 實際發生的日期，用於產生「明天」「週三」標示。
+    public let nextCourseDate: Date?
+
     public init(
         date: Date,
         targetCourse: Course?,
@@ -18,7 +23,9 @@ public struct CourseTimelineEntry: TimelineEntry {
         nextCourse: (course: Course, minutesUntil: Int)?,
         todayCourses: [Course],
         progress: DayProgressInfo,
-        settings: WidgetSettings
+        settings: WidgetSettings,
+        nextCourseAfterToday: Course? = nil,
+        nextCourseDate: Date? = nil
     ) {
         self.date = date
         self.targetCourse = targetCourse
@@ -27,6 +34,39 @@ public struct CourseTimelineEntry: TimelineEntry {
         self.todayCourses = todayCourses
         self.progress = progress
         self.settings = settings
+        self.nextCourseAfterToday = nextCourseAfterToday
+        self.nextCourseDate = nextCourseDate
+    }
+
+    /// 今日課程是否已全部結束（今天有課，但已經沒有正在上或接下來要上的課）。
+    ///
+    /// 這是「時間有沒有同步」的關鍵狀態：晚上 9 點時必須為 true，
+    /// 顯示層才會呈現「今日課程已結束」，而不是早上第一堂課。
+    public var isTodayFinished: Bool {
+        !todayCourses.isEmpty && currentCourse == nil && nextCourse == nil
+    }
+
+    /// 今日「還沒結束」的課程，供今日日程清單使用。
+    ///
+    /// 下午三點時清單應該顯示下午還沒上的課，而不是早上已經上完的課。
+    /// 全部結束時退回完整清單，避免清單變空。
+    public var remainingTodayCourses: [Course] {
+        let now = TimeOfDay(date: date)
+        let remaining = todayCourses.filter { $0.endTime >= now }
+        return remaining.isEmpty ? todayCourses : remaining
+    }
+
+    /// 「明天」「週三」等下一堂課的時間標示。
+    public var nextCourseDayLabel: String? {
+        guard let nextCourseDate else { return nil }
+        let calendar = Calendar.current
+        if calendar.isDateInTomorrow(nextCourseDate) {
+            return "明天"
+        }
+        let names = ["日", "一", "二", "三", "四", "五", "六"]
+        let weekday = calendar.component(.weekday, from: nextCourseDate)
+        guard names.indices.contains(weekday - 1) else { return nil }
+        return "週" + names[weekday - 1]
     }
 }
 
@@ -60,34 +100,30 @@ public struct CourseTimelineProvider: TimelineProvider {
     public func getTimeline(in context: Context, completion: @escaping (Timeline<CourseTimelineEntry>) -> Void) {
         let data = WidgetDataStorage.loadData()
         let now = Date()
-        var entries: [CourseTimelineEntry] = []
-
         let todayList = ScheduleCalculator.todayCourses(in: data.courses, at: now)
 
-        if todayList.isEmpty {
-            // 今日無課：產生單一狀態，1 小時後重新調度
+        // 今日無課，或今日課程已全部結束：
+        // 只需要單一狀態，並在跨日時重新調度即可。
+        // （其餘更新由 App 端儲存課表時的 WidgetCenter.reloadAllTimelines() 觸發。）
+        if todayList.isEmpty || ScheduleCalculator.isDayFinished(in: data.courses, at: now) {
             let entry = makeEntry(at: now, courses: data.courses, settings: data.settings)
-            entries.append(entry)
-
-            let reloadDate = Calendar.current.date(byAdding: .hour, value: 1, to: now) ?? now.addingTimeInterval(3600)
-            let timeline = Timeline(entries: entries, policy: .after(reloadDate))
-            completion(timeline)
+            let reloadDate = ScheduleCalculator.startOfNextDay(after: now)
+            completion(Timeline(entries: [entry], policy: .after(reloadDate)))
             return
         }
 
-        // 今日有課：
+        // 今日還有課：
         // 依照使用者需求「精確到分、以分做更新，每過一分鐘進度條就會更新它的百分比」
-        // 預排未來 30 分鐘每一分鐘的 Entry，讓 iOS 系統每分鐘精確切換進度百分比
+        // 預排未來 30 分鐘每一分鐘的 Entry，讓 iOS 系統每分鐘精確切換進度百分比。
+        var entries: [CourseTimelineEntry] = []
         for minuteOffset in 0..<30 {
             if let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: now) {
-                let entry = makeEntry(at: entryDate, courses: data.courses, settings: data.settings)
-                entries.append(entry)
+                entries.append(makeEntry(at: entryDate, courses: data.courses, settings: data.settings))
             }
         }
 
         let reloadDate = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
-        let timeline = Timeline(entries: entries, policy: .after(reloadDate))
-        completion(timeline)
+        completion(Timeline(entries: entries, policy: .after(reloadDate)))
     }
 
     private func makeEntry(at date: Date, courses: [Course], settings: WidgetSettings) -> CourseTimelineEntry {
@@ -95,8 +131,20 @@ public struct CourseTimelineProvider: TimelineProvider {
         let next = ScheduleCalculator.nextCourse(in: courses, at: date)
         let todayList = ScheduleCalculator.todayCourses(in: courses, at: date)
         let progress = ScheduleCalculator.todayProgress(in: courses, at: date)
+        let upcoming = ScheduleCalculator.nextUpcomingCourse(in: courses, at: date)
 
-        let target = current ?? next?.course ?? todayList.first ?? courses.first
+        // 主角課程的選擇必須看「時間」：
+        // 只有正在上課、或今天還有下一堂課時，才把課程當成主角。
+        // 今日課程全部結束後若退回 todayList.first，晚上就會顯示早上已上完的第一堂課
+        // （這正是先前「小工具顯示早上的課、看起來沒同步」的原因）。
+        let target: Course?
+        if let current {
+            target = current
+        } else if let next {
+            target = next.course
+        } else {
+            target = nil
+        }
 
         return CourseTimelineEntry(
             date: date,
@@ -105,7 +153,9 @@ public struct CourseTimelineProvider: TimelineProvider {
             nextCourse: next,
             todayCourses: todayList,
             progress: progress,
-            settings: settings
+            settings: settings,
+            nextCourseAfterToday: upcoming?.course,
+            nextCourseDate: upcoming?.date
         )
     }
 }
