@@ -5,14 +5,69 @@ import Foundation
 /// 目的：在**不需要 Xcode、也不需要連接電腦**的前提下，判斷桌面小工具為什麼沒有出現在
 /// 小工具庫。整個鏈路只有三個環節會失敗，逐項檢查即可定位：
 ///
-/// 1. `PlugIns/*.appex` 是否真的被安裝進 App bundle（SideStore 在更新時會自動剔除
-///    「新版有、裝置上舊版沒有」的擴展，這是最常見的失敗點）。
-/// 2. 主程式與擴展的 `embedded.mobileprovision` 是否都帶有
-///    `com.apple.security.application-groups` 授權（缺少時小工具讀不到共享課表）。
-/// 3. 系統是否已完成小工具擴展註冊（只能由 iOS 端決定，App 無法強制）。
+/// 1. `PlugIns/*.appex` 是否真的被安裝進 App bundle。
+/// 2. 擴展的 provisioning profile「是否涵蓋擴展自己的 bundle ID」。
+///    這是側載最隱蔽的失敗點：SideStore 安裝時若選擇
+///    「Keep App Extensions (Use Main Profile)」，會讓擴展沿用主程式的 profile，
+///    於是擴展的 `application-identifier` 指向主程式而非擴展本身，
+///    iOS 的 installd 就不會註冊這個擴展 —— App 完全正常、擴展檔案也在，
+///    但小工具永遠不會出現在小工具庫。
+/// 3. App Group 共享授權是否生效（只影響小工具讀不讀得到課表資料）。
 ///
 /// 全部使用公開 API 讀取自己 bundle 內的檔案，不涉及任何私有 API。
 enum WidgetDiagnostics {
+
+    // MARK: - Provisioning Profile 資訊
+
+    struct ProvisioningInfo {
+        let name: String
+        let teamIdentifier: String
+        let applicationIdentifier: String
+        let applicationGroups: [String]
+
+        var summary: String {
+            let groupText = applicationGroups.isEmpty
+                ? "無 App Group 授權"
+                : "App Group = \(applicationGroups.joined(separator: ", "))"
+            return "名稱 = \(name)，Team = \(teamIdentifier)，App ID = \(applicationIdentifier)，\(groupText)"
+        }
+
+        /// `application-identifier` 的格式為 `<TeamID>.<AppID>`，
+        /// 若 App ID 使用萬用字元則為 `<TeamID>.*`。
+        /// 回傳這份 profile 是否涵蓋指定的 bundle ID。
+        func covers(bundleIdentifier: String) -> Bool {
+            guard let firstDot = applicationIdentifier.firstIndex(of: ".") else { return false }
+            let identifier = String(applicationIdentifier[applicationIdentifier.index(after: firstDot)...])
+
+            if identifier == "*" {
+                return true
+            }
+            if identifier.hasSuffix(".*") {
+                let prefix = String(identifier.dropLast(2))
+                return bundleIdentifier.hasPrefix(prefix + ".")
+            }
+            return identifier == bundleIdentifier
+        }
+    }
+
+    // MARK: - 擴展探測結果
+
+    struct ExtensionProbe {
+        let folderName: String
+        let identifier: String
+        let version: String
+        let build: String
+        let extensionPoint: String
+        let executableExists: Bool
+        let provisioning: ProvisioningInfo?
+
+        /// 簽章是否涵蓋擴展自己的 bundle ID（nil 表示找不到 profile）。
+        var isProvisioningValid: Bool? {
+            provisioning.map { $0.covers(bundleIdentifier: identifier) }
+        }
+    }
+
+    // MARK: - 環境摘要
 
     struct Summary {
         let appIdentifier: String
@@ -21,8 +76,8 @@ enum WidgetDiagnostics {
         let appBuild: String
         let osVersion: String
         let appGroupStatus: String
+        let appProvisioning: ProvisioningInfo?
         let extensionProbes: [ExtensionProbe]
-        let appProvisioning: String
 
         /// 產生可直接複製貼上的純文字報告。
         var report: String {
@@ -37,7 +92,7 @@ enum WidgetDiagnostics {
             lines.append("    \(appGroupStatus)")
             lines.append("")
             lines.append("[2] 主程式 embedded.mobileprovision")
-            lines.append("    \(appProvisioning)")
+            lines.append("    \(appProvisioning?.summary ?? "找不到 embedded.mobileprovision")")
             lines.append("")
             lines.append("[3] 擴展是否被安裝進 App bundle")
             if extensionProbes.isEmpty {
@@ -50,23 +105,20 @@ enum WidgetDiagnostics {
                     lines.append("      版本: \(probe.version) (\(probe.build))")
                     lines.append("      擴展點: \(probe.extensionPoint)")
                     lines.append("      執行檔: \(probe.executableExists ? "存在" : "遺失")")
-                    lines.append("      簽章授權: \(probe.provisioning)")
+                    lines.append("      簽章授權: \(probe.provisioning?.summary ?? "找不到 embedded.mobileprovision")")
+
+                    if probe.isProvisioningValid == false {
+                        lines.append("      ⚠️ 簽章不符：這份 profile 的 App ID 沒有涵蓋擴展的 bundle ID，")
+                        lines.append("         iOS 不會註冊這個擴展，小工具因此不會出現在小工具庫。")
+                        lines.append("         原因：安裝時選了「Keep App Extensions (Use Main Profile)」。")
+                        lines.append("         解法：重新安裝，改選「Keep App Extensions (Register App ID for Each Extension)」。")
+                    }
                 }
             }
             lines.append("")
             lines.append("=== 報告結束 ===")
             return lines.joined(separator: "\n")
         }
-    }
-
-    struct ExtensionProbe {
-        let folderName: String
-        let identifier: String
-        let version: String
-        let build: String
-        let extensionPoint: String
-        let executableExists: Bool
-        let provisioning: String
     }
 
     static func makeSummary() -> Summary {
@@ -79,9 +131,8 @@ enum WidgetDiagnostics {
             appBuild: (info["CFBundleVersion"] as? String) ?? "?",
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             appGroupStatus: appGroupStatus(),
-            extensionProbes: extensionProbes(),
-            appProvisioning: provisioningSummary(at: Bundle.main.bundleURL)
-                ?? "找不到 embedded.mobileprovision（此 App 可能未被側載工具重新簽名）"
+            appProvisioning: provisioningInfo(at: Bundle.main.bundleURL),
+            extensionProbes: extensionProbes()
         )
     }
 
@@ -128,7 +179,7 @@ enum WidgetDiagnostics {
                     extensionPoint: extensionPoint,
                     executableExists: !executableName.isEmpty
                         && FileManager.default.fileExists(atPath: url.appendingPathComponent(executableName).path),
-                    provisioning: provisioningSummary(at: url) ?? "找不到 embedded.mobileprovision"
+                    provisioning: provisioningInfo(at: url)
                 )
             }
     }
@@ -136,31 +187,29 @@ enum WidgetDiagnostics {
     // MARK: - 3. 讀取 embedded.mobileprovision
 
     /// 側載工具（SideStore / AltStore）會把新的 provisioning profile 寫進 bundle，
-    /// 其中 `Entitlements` 就是最終實際生效的授權，可據此確認 App Group 是否真的被指派。
-    private static func provisioningSummary(at bundleURL: URL) -> String? {
+    /// 其中 `Entitlements` 就是最終實際生效的授權。
+    private static func provisioningInfo(at bundleURL: URL) -> ProvisioningInfo? {
         let profileURL = bundleURL.appendingPathComponent("embedded.mobileprovision")
         guard let data = try? Data(contentsOf: profileURL) else { return nil }
 
         // .mobileprovision 是 CMS 容器，內含一段 XML plist，直接切出該區段解析。
         guard let xmlStart = data.range(of: Data("<?xml".utf8)),
               let xmlEnd = data.range(of: Data("</plist>".utf8), in: xmlStart.lowerBound..<data.endIndex) else {
-            return "embedded.mobileprovision 格式無法解析"
+            return nil
         }
 
         let plistData = data.subdata(in: xmlStart.lowerBound..<xmlEnd.upperBound)
         guard let plist = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any] else {
-            return "embedded.mobileprovision 格式無法解析"
+            return nil
         }
 
         let entitlements = (plist["Entitlements"] as? [String: Any]) ?? [:]
-        let applicationIdentifier = (entitlements["application-identifier"] as? String) ?? "未提供"
-        let applicationGroups = (entitlements["com.apple.security.application-groups"] as? [String]) ?? []
-        let teamIdentifier = (plist["TeamIdentifier"] as? [String])?.first ?? "未提供"
-        let name = (plist["Name"] as? String) ?? "未命名"
 
-        let groupText = applicationGroups.isEmpty
-            ? "無 App Group 授權 ✗"
-            : "App Group = \(applicationGroups.joined(separator: ", "))"
-        return "名稱 = \(name)，Team = \(teamIdentifier)，App ID = \(applicationIdentifier)，\(groupText)"
+        return ProvisioningInfo(
+            name: (plist["Name"] as? String) ?? "未命名",
+            teamIdentifier: (plist["TeamIdentifier"] as? [String])?.first ?? "未提供",
+            applicationIdentifier: (entitlements["application-identifier"] as? String) ?? "未提供",
+            applicationGroups: (entitlements["com.apple.security.application-groups"] as? [String]) ?? []
+        )
     }
 }

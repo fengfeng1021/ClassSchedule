@@ -10,15 +10,23 @@
       "bundleIdentifier": "com.fengfeng.classschedule",
       "developerName": "fengfeng",
       "subtitle": "桌面小工具與 120Hz 質感課表",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "versionDate": "2026-09-15",
-      "versionDescription": "1. 新增「小工具註冊診斷」面板：一鍵讀取 App bundle 內的實際狀態，直接判斷擴展是否真的被安裝、App Group 授權是否生效，並可複製完整報告回報問題。\n2. 右上角「新增課程」按鈕改為與左側選單一致的中性液態玻璃樣式（移除藍色 tint）。\n3. 站內排查指南補上 SideStore 實際路徑：設定 → Advanced → User Customizations → 「Customize App Extensions」，先開啟再安裝才能避免擴展被自動剔除。",
-      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.1.1/ClassSchedule.ipa",
-      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、iPad 特大、鎖定畫面）\n• 原生 Liquid Glass 液態玻璃工具列與流體分頁動效（需 iOS 26 以上）\n• 內建小工具註冊診斷：直接顯示擴展安裝狀態與 App Group 授權\n• 120Hz ProMotion 高刷新率解鎖（由 Info.plist 宣告，系統原生調度）\n• 支援無感覆蓋更新，完美保留現有課表資料",
+      "versionDescription": "1. 小工具診斷面板現在會直接判斷「擴展簽章是否涵蓋它自己的 bundle ID」：若安裝時選了 SideStore 的「Keep App Extensions (Use Main Profile)」，擴展會沿用主程式簽章而被 iOS 拒絕註冊，報告會標示「⚠️ 簽章不符」並給出解法。\n2. 站內排查指南改以實機確診的根因排序：安裝時必須選「Keep App Extensions (Register App ID for Each Extension)」，並先開啟「Customize App Extensions」再安裝。\n3. 右上角「新增課程」按鈕維持與左側選單一致的中性液態玻璃樣式。",
+      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.1.2/ClassSchedule.ipa",
+      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、iPad 特大、鎖定畫面）\n• 原生 Liquid Glass 液態玻璃工具列與流體分頁動效（需 iOS 26 以上）\n• 內建小工具註冊診斷：直接指出擴展未註冊的原因與解法\n• 120Hz ProMotion 高刷新率解鎖（由 Info.plist 宣告，系統原生調度）\n• 支援無感覆蓋更新，完美保留現有課表資料",
       "iconURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/AppIcon.png",
       "tintColor": "3478F6",
       "size": 3000000,
       "versions": [
+        {
+          "version": "1.1.2",
+          "date": "2026-09-15",
+          "localizedDescription": "1. 小工具診斷面板現在會直接判斷「擴展簽章是否涵蓋它自己的 bundle ID」：若安裝時選了 SideStore 的「Keep App Extensions (Use Main Profile)」，擴展會沿用主程式簽章而被 iOS 拒絕註冊，報告會標示「⚠️ 簽章不符」並給出解法。\n2. 站內排查指南改以實機確診的根因排序：安裝時必須選「Keep App Extensions (Register App ID for Each Extension)」，並先開啟「Customize App Extensions」再安裝。\n3. 右上角「新增課程」按鈕維持與左側選單一致的中性液態玻璃樣式。",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.1.2/ClassSchedule.ipa",
+          "size": 3000000,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "1.1.1",
           "date": "2026-09-15",

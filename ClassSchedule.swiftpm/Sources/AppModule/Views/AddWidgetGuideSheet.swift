@@ -341,20 +341,20 @@ public struct AddWidgetGuideSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                // 排查點 1：必須「重新安裝」，不能用更新覆蓋
+                // 排查點 1（最常見、已實機確診）：安裝時務必選「為每個擴展註冊 App ID」
                 troubleshootingRow(
                     badge: "重點 1",
-                    title: "請「刪除後重新安裝」，不要用更新覆蓋",
-                    content: "SideStore 在更新既有 App 時，會自動移除「新版本有、但裝置上已安裝版本沒有」的擴展。若你先前安裝的版本沒有成功帶上小工具擴展，之後每一次更新都會被再次剔除。\n👉 解法：先長按桌面圖示刪除本 App（可先在此頁面匯出課表備份），再到 SideStore 重新安裝一次。"
+                    title: "安裝時請選「Register App ID for Each Extension」",
+                    content: "SideStore 安裝含擴展的 App 時會跳出「App Contains Extensions」視窗，其中有兩個「保留」選項，差別非常關鍵：\n• Keep App Extensions (Use Main Profile) ❌ 會讓小工具沿用主程式的簽章，擴展的 application-identifier 不會涵蓋它自己的 bundle ID，iOS 直接拒絕註冊這個擴展 —— App 一切正常、擴展檔案也在，但小工具永遠不會出現在小工具庫。\n• Keep App Extensions (Register App ID for Each Extension) ✅ 會為擴展建立專屬 App ID 與簽章，小工具才能被系統註冊。\n👉 解法：刪除 App 後重新安裝，選擇後者。上方診斷報告若出現「⚠️ 簽章不符」即代表目前裝的是前者。"
                 )
 
                 Divider()
 
-                // 排查點 2：安裝時保留擴展
+                // 排查點 2：先開啟擴展自訂，否則連問都不問就自動剔除
                 troubleshootingRow(
                     badge: "重點 2",
-                    title: "先開啟擴展自訂，再安裝",
-                    content: "SideStore 預設會在「更新」時自動刪除「新版本有、但裝置上已安裝版本沒有」的擴展。若先前安裝的版本沒有成功帶上小工具擴展，之後每次更新都會被再次剔除。\n👉 解法：先到 SideStore「設定 → Advanced → User Customizations → GENERAL」，把「Customize App Extensions」打開；之後安裝時會跳出擴展清單，務必選擇保留全部擴展。\n👉 小工具需要額外 1 個 App ID（免費帳號上限 3 個），請確認 SideStore 的 App IDs 還有名額。"
+                    title: "先開啟「Customize App Extensions」再安裝",
+                    content: "若沒有先把這個開關打開，SideStore 在更新時會「不詢問」就直接刪除「新版有、裝置上已安裝版沒有」的擴展。\n👉 解法：SideStore「設定 → User Customizations → GENERAL → Customize App Extensions」打開後再安裝。\n👉 小工具需要額外 1 個 App ID（免費帳號上限 3 個），請確認 SideStore 的 App IDs 還有名額。"
                 )
 
                 Divider()
@@ -363,7 +363,7 @@ public struct AddWidgetGuideSheet: View {
                 troubleshootingRow(
                     badge: "重點 3",
                     title: "確認 App Group 共享授權已生效",
-                    content: "本頁上方的「小工具共享狀態」若顯示「未授權」，代表簽章中缺少 App Group 授權，小工具只會顯示範例課表。此授權由 IPA 內的擴展與主程式共同宣告，安裝含擴展的版本後即會顯示為「已就緒」。"
+                    content: "上方「小工具共享狀態」若顯示「未授權」，代表簽章中缺少 App Group 授權，小工具只會顯示範例課表。此授權由 IPA 內的擴展與主程式共同宣告，安裝含擴展的正確版本後即會顯示為「已就緒」。"
                 )
 
                 Divider()
