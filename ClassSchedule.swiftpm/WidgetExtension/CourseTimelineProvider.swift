@@ -43,6 +43,15 @@ public struct CourseTimelineProvider: TimelineProvider {
     }
 
     public func getSnapshot(in context: Context, completion: @escaping (CourseTimelineEntry) -> Void) {
+        // 小工具庫的預覽快照必須「快速且不依賴共享容器」。
+        // Apple 官方文件明確要求在 isPreview 時改用範例資料：若預覽階段去讀 App Group
+        // 而發生任何失敗，WidgetKit 可能因此拿不到 descriptor，小工具就不會出現在小工具庫。
+        if context.isPreview {
+            let entry = makeEntry(at: Date(), courses: WidgetSampleData.fallbackCourses, settings: WidgetSettings())
+            completion(entry)
+            return
+        }
+
         let data = WidgetDataStorage.loadData()
         let entry = makeEntry(at: Date(), courses: data.courses, settings: data.settings)
         completion(entry)

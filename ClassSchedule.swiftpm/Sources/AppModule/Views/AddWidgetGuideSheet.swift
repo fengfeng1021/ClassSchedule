@@ -341,6 +341,15 @@ public struct AddWidgetGuideSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
+                // 前置判斷：這台裝置是否「任何」側載小工具都顯示不出來
+                troubleshootingRow(
+                    badge: "先確認",
+                    title: "SideStore 自己的小工具找得到嗎？",
+                    content: "這是判斷問題出在「本 App」還是「iOS 對側載 App 的限制」最快的分界點。\n👉 長按桌面 → 左上角「+」→ 搜尋「SideStore」。\n• 若 SideStore 的小工具也找不到 → 代表這台裝置目前不會註冊任何側載 App 的擴展，屬於 iOS／側載工具層級的限制，本 App 端無法繞過；請先改用 App Store 版本或等待系統修正。\n• 若 SideStore 的小工具找得到、只有「課表」沒有 → 那就是本 App 擴展的註冊問題，請把上方診斷報告複製回報。"
+                )
+
+                Divider()
+
                 // 排查點 1（最常見、已實機確診）：安裝時務必選「為每個擴展註冊 App ID」
                 troubleshootingRow(
                     badge: "重點 1",
