@@ -24,6 +24,7 @@ public struct CourseTimelineEntry: TimelineEntry {
         todayCourses: [Course],
         progress: DayProgressInfo,
         settings: WidgetSettings,
+        classReminderMinutes: Int? = nil,
         nextCourseAfterToday: Course? = nil,
         nextCourseDate: Date? = nil
     ) {
@@ -34,6 +35,7 @@ public struct CourseTimelineEntry: TimelineEntry {
         self.todayCourses = todayCourses
         self.progress = progress
         self.settings = settings
+        self.classReminderMinutes = classReminderMinutes
         self.nextCourseAfterToday = nextCourseAfterToday
         self.nextCourseDate = nextCourseDate
     }
@@ -89,9 +91,9 @@ public struct CourseTimelineEntry: TimelineEntry {
         return nextCourse.course.startTime.toDate(baseDate: date)
     }
 
-    /// 使用者設定的課前提醒分鐘數（未設定時為 nil）。
+    /// 使用者設定的課前提醒分鐘數（只保留有效值）。
     public var reminderMinutes: Int? {
-        guard let minutes = settings.classReminderMinutes, minutes > 0 else { return nil }
+        guard let minutes = classReminderMinutes, minutes > 0 else { return nil }
         return minutes
     }
 
@@ -178,7 +180,7 @@ public struct CourseTimelineProvider: TimelineProvider {
         }
 
         let data = WidgetDataStorage.loadData()
-        let entry = makeEntry(at: Date(), courses: data.courses, settings: data.settings)
+        let entry = makeEntry(at: Date(), courses: data.courses, settings: data.settings, reminderMinutes: data.reminderMinutes)
         completion(entry)
     }
 
@@ -198,7 +200,7 @@ public struct CourseTimelineProvider: TimelineProvider {
                 var entries: [CourseTimelineEntry] = []
                 for minuteOffset in 0..<60 {
                     if let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: now) {
-                        entries.append(makeEntry(at: entryDate, courses: data.courses, settings: data.settings))
+                        entries.append(makeEntry(at: entryDate, courses: data.courses, settings: data.settings, reminderMinutes: data.reminderMinutes))
                     }
                 }
                 let reloadDate = Calendar.current.date(byAdding: .minute, value: 60, to: now) ?? now.addingTimeInterval(3600)
@@ -207,7 +209,7 @@ public struct CourseTimelineProvider: TimelineProvider {
             }
 
             // 完全沒有下一堂課：只需要單一狀態，跨日再重新調度。
-            let entry = makeEntry(at: now, courses: data.courses, settings: data.settings)
+            let entry = makeEntry(at: now, courses: data.courses, settings: data.settings, reminderMinutes: data.reminderMinutes)
             let reloadDate = ScheduleCalculator.startOfNextDay(after: now)
             completion(Timeline(entries: [entry], policy: .after(reloadDate)))
             return
@@ -219,7 +221,7 @@ public struct CourseTimelineProvider: TimelineProvider {
         var entries: [CourseTimelineEntry] = []
         for minuteOffset in 0..<30 {
             if let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: now) {
-                entries.append(makeEntry(at: entryDate, courses: data.courses, settings: data.settings))
+                entries.append(makeEntry(at: entryDate, courses: data.courses, settings: data.settings, reminderMinutes: data.reminderMinutes))
             }
         }
 
@@ -227,7 +229,12 @@ public struct CourseTimelineProvider: TimelineProvider {
         completion(Timeline(entries: entries, policy: .after(reloadDate)))
     }
 
-    private func makeEntry(at date: Date, courses: [Course], settings: WidgetSettings) -> CourseTimelineEntry {
+    private func makeEntry(
+        at date: Date,
+        courses: [Course],
+        settings: WidgetSettings,
+        reminderMinutes: Int? = nil
+    ) -> CourseTimelineEntry {
         let current = ScheduleCalculator.currentCourse(in: courses, at: date)
         let next = ScheduleCalculator.nextCourse(in: courses, at: date)
         let todayList = ScheduleCalculator.todayCourses(in: courses, at: date)
@@ -255,6 +262,7 @@ public struct CourseTimelineProvider: TimelineProvider {
             todayCourses: todayList,
             progress: progress,
             settings: settings,
+            classReminderMinutes: reminderMinutes,
             nextCourseAfterToday: upcoming?.course,
             nextCourseDate: upcoming?.date
         )

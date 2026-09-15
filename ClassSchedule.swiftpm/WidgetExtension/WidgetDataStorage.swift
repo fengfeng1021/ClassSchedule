@@ -15,9 +15,10 @@ public struct WidgetDataStorage {
         SharedAppGroup.isAvailable
     }
 
-    public static func loadData() -> (courses: [Course], settings: WidgetSettings) {
+    public static func loadData() -> (courses: [Course], settings: WidgetSettings, reminderMinutes: Int?) {
         var loadedCourses: [Course]? = nil
         var loadedSettings: WidgetSettings? = nil
+        var loadedReminderMinutes: Int? = nil
 
         // 1. 優先從 App Group UserDefaults 共享空間讀取
         if let sharedDefaults = SharedAppGroup.sharedDefaults {
@@ -29,6 +30,7 @@ public struct WidgetDataStorage {
             if let data = sharedDefaults.data(forKey: "saved_settings"),
                let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
                 loadedSettings = decoded.widgetSettings
+                loadedReminderMinutes = decoded.classReminderMinutes
             }
         }
 
@@ -48,11 +50,12 @@ public struct WidgetDataStorage {
                let data = try? Data(contentsOf: settingsURL),
                let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {
                 loadedSettings = decoded.widgetSettings
+                loadedReminderMinutes = decoded.classReminderMinutes
             }
         }
 
         let finalCourses = loadedCourses ?? WidgetSampleData.fallbackCourses
         let finalSettings = loadedSettings ?? WidgetSettings()
-        return (finalCourses, finalSettings)
+        return (finalCourses, finalSettings, loadedReminderMinutes)
     }
 }
