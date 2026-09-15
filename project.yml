@@ -60,3 +60,6 @@ targets:
         # 由 CI 以命令列覆寫，這裡只提供安全的預設值
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
+    scheme:
+      # 產生同名 scheme，方便在 Xcode 中直接建置與除錯這個擴展
+      gatherCoverageData: false

@@ -67,10 +67,11 @@ jobs:
             -target ClassScheduleWidget \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath ./widgetbuild \
+            SYMROOT="$PWD/widgetbuild/Products" \
+            OBJROOT="$PWD/widgetbuild/Intermediates" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
-          WIDGET_BUILT=$(ls -d widgetbuild/Build/Products/Release-iphoneos/*.appex)
+          WIDGET_BUILT=$(ls -d widgetbuild/Products/Release-iphoneos/*.appex)
           echo "Built appex: $WIDGET_BUILT"
           echo "=== appex 內容 ==="
           find "$WIDGET_BUILT" -maxdepth 2 | sort
@@ -90,7 +91,7 @@ jobs:
         run: |
           cd ClassSchedule.swiftpm
           APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
-          WIDGET_BUILT=$(ls -d ../widgetbuild/Build/Products/Release-iphoneos/*.appex)
+          WIDGET_BUILT=$(ls -d ../widgetbuild/Products/Release-iphoneos/*.appex)
           WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
 
           rm -rf "$APP_PATH/PlugIns"
