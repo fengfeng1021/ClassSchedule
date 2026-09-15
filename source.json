@@ -10,15 +10,23 @@
       "bundleIdentifier": "com.fengfeng.classschedule",
       "developerName": "fengfeng",
       "subtitle": "桌面小工具與 120Hz 質感課表",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "versionDate": "2026-09-15",
-      "versionDescription": "1. 修正小工具「時間沒同步」的顯示邏輯：晚上 9 點卻還顯示早上第一堂課。原因是挑選主角課程時，會在「今天已經沒課」時退回今日清單的第一堂，而那不是早上已上完、就是完全不該顯示的課。現在只有「正在上課」或「今天還有下一堂」時才以課程為主角；今日課程全部結束後改為顯示「今日課程已結束」，並附上下一堂課（例如「明天 08:10 M008」）。\n2. 今日日程清單改為時間感知：顯示「還沒結束」的課程並標示剩餘堂數，下午不再列出早上已上完的課。\n3. 時間軸調度：今日課程結束或今日無課時只保留單一狀態，改在跨日零點重新調度，減少不必要的喚醒。",
-      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.3.1/ClassSchedule.ipa",
-      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、iPad 特大、鎖定畫面）\n• 小工具隨時間自動切換：上課中／倒數／今日已結束／明日第一堂\n• 原生 Liquid Glass 液態玻璃工具列與流體分頁動效（需 iOS 26 以上）\n• 內建小工具註冊診斷：直接指出擴展未註冊的原因與解法\n• 120Hz ProMotion 高刷新率解鎖（由 Info.plist 宣告，系統原生調度）",
+      "versionDescription": "1. 今日課程結束後改為「倒數下一堂上課」：小工具顯示「距下一堂上課還有 11 小時 10 分」加上「明天 08:10 · M008」，剩餘不到一小時會轉為橘色強調，剩不到一分鐘顯示「即將開始」。\n2. 倒數會真的走動：時間軸在今日已結束期間改為每分鐘一個 entry（每小時重新調度一次），因此「還有 N 小時 N 分」會隨分鐘跳動，而不是停在產生時間軸的那一刻。\n3. 鎖定畫面小工具同步支援：矩形顯示「距下一堂還有 …」，inline 顯示倒數文字。\n4. 邊界情況修正：今日已上完但未來一週都沒有課時，不再誤顯示成「今日無課表安排」。",
+      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.3.2/ClassSchedule.ipa",
+      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、iPad 特大、鎖定畫面）\n• 小工具隨時間自動切換：上課中／倒數／今日已結束並倒數下一堂\n• 原生 Liquid Glass 液態玻璃工具列與流體分頁動效（需 iOS 26 以上）\n• 內建小工具註冊診斷：直接指出擴展未註冊的原因與解法\n• 120Hz ProMotion 高刷新率解鎖（由 Info.plist 宣告，系統原生調度）",
       "iconURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/AppIcon.png",
       "tintColor": "3478F6",
       "size": 3000000,
       "versions": [
+        {
+          "version": "1.3.2",
+          "date": "2026-09-15",
+          "localizedDescription": "1. 今日課程結束後改為「倒數下一堂上課」：小工具顯示「距下一堂上課還有 11 小時 10 分」加上「明天 08:10 · M008」，剩餘不到一小時會轉為橘色強調，剩不到一分鐘顯示「即將開始」。\n2. 倒數會真的走動：時間軸在今日已結束期間改為每分鐘一個 entry（每小時重新調度一次），因此「還有 N 小時 N 分」會隨分鐘跳動，而不是停在產生時間軸的那一刻。\n3. 鎖定畫面小工具同步支援：矩形顯示「距下一堂還有 …」，inline 顯示倒數文字。\n4. 邊界情況修正：今日已上完但未來一週都沒有課時，不再誤顯示成「今日無課表安排」。",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.3.2/ClassSchedule.ipa",
+          "size": 3000000,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "1.3.1",
           "date": "2026-09-15",

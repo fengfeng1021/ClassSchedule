@@ -136,7 +136,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     Divider()
 
                     if entry.todayCourses.isEmpty {
-                        emptyWidgetContent
+                        widgetEmptyState
                     } else {
                         VStack(spacing: 5) {
                             ForEach(entry.remainingTodayCourses.prefix(2)) { c in
@@ -231,7 +231,7 @@ public struct ClassScheduleWidgetEntryView: View {
                 .padding(10)
             }
         } else {
-            emptyWidgetContent
+            widgetEmptyState
         }
     }
 
@@ -325,7 +325,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     }
 
                     if entry.todayCourses.isEmpty {
-                        emptyWidgetContent
+                        widgetEmptyState
                     } else {
                         VStack(spacing: 5) {
                             ForEach(entry.remainingTodayCourses.prefix(2)) { c in
@@ -434,7 +434,7 @@ public struct ClassScheduleWidgetEntryView: View {
                 .padding(14)
             }
         } else {
-            emptyWidgetContent
+            widgetEmptyState
         }
     }
 
@@ -488,7 +488,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     .foregroundStyle(.secondary)
 
                 if entry.todayCourses.isEmpty {
-                    emptyWidgetContent
+                    widgetEmptyState
                 } else {
                     VStack(spacing: 6) {
                         ForEach(entry.remainingTodayCourses.prefix(4)) { c in
@@ -539,7 +539,7 @@ public struct ClassScheduleWidgetEntryView: View {
                 Divider()
 
                 if entry.todayCourses.isEmpty {
-                    emptyWidgetContent
+                    widgetEmptyState
                 } else {
                     VStack(spacing: 6) {
                         ForEach(entry.remainingTodayCourses.prefix(5)) { c in
@@ -627,7 +627,7 @@ public struct ClassScheduleWidgetEntryView: View {
                     .foregroundStyle(.secondary)
 
                 if entry.todayCourses.isEmpty {
-                    emptyWidgetContent
+                    widgetEmptyState
                 } else {
                     VStack(spacing: 6) {
                         ForEach(entry.remainingTodayCourses.prefix(4)) { c in
@@ -672,11 +672,21 @@ public struct ClassScheduleWidgetEntryView: View {
         let isTodayFinished = !entry.todayCourses.isEmpty && entry.currentCourse == nil && entry.nextCourse == nil
 
         if isTodayFinished {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("當日課程已全部結束")
-                    .font(.system(size: 12.5, weight: .black, design: .rounded))
-                Text("今日所有課程已完成！")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("今日課程已結束")
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .foregroundStyle(.secondary)
+
+                if let countdown = entry.countdownToNextCourse {
+                    Text("距下一堂還有 \(countdown.valueText)")
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else {
+                    Text("今日所有課程已完成！")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                }
             }
         } else if isTodayEmpty {
             VStack(alignment: .leading, spacing: 2) {
@@ -717,7 +727,9 @@ public struct ClassScheduleWidgetEntryView: View {
 
     @ViewBuilder
     private var accessoryInlineView: some View {
-        if let course = entry.targetCourse {
+        if let countdown = entry.countdownToNextCourse, entry.isTodayFinished {
+            Text("距下一堂還有 \(countdown.valueText)")
+        } else if let course = entry.targetCourse {
             Text("\(course.name) \(course.classroom.isEmpty ? "" : "· " + course.classroom)")
         } else {
             Text("今日無課")
@@ -760,7 +772,67 @@ public struct ClassScheduleWidgetEntryView: View {
         }
     }
 
-    private var emptyWidgetContent: some View {
+    // MARK: - 空狀態（依「今日已結束 / 今日無課」分流）
+
+    @ViewBuilder
+    private var widgetEmptyState: some View {
+        if entry.isTodayFinished, entry.countdownToNextCourse != nil {
+            finishedCountdownContent
+        } else {
+            noCoursesContent
+        }
+    }
+
+    /// 今日課程已全部結束：以倒數下一堂為主角。
+    ///
+    /// 倒數會真的走動 —— 時間軸在已結束狀態下仍會每分鐘換一個 entry，
+    /// 所以這裡用 entry.date 與下一堂課的實際開始時間即時算出剩餘時間。
+    @ViewBuilder
+    private var finishedCountdownContent: some View {
+        let isCompact = (family == .systemSmall)
+
+        if let countdown = entry.countdownToNextCourse {
+            VStack(spacing: isCompact ? 3 : 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: isCompact ? 10.5 : 12.5, weight: .bold))
+                        .foregroundStyle(.green)
+
+                    Text("今日課程已結束")
+                        .font(.system(size: isCompact ? 10.5 : 12.5, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                Text("距下一堂上課還有")
+                    .font(.system(size: isCompact ? 10 : 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(countdown.valueText)
+                    .font(.system(size: isCompact ? 21 : 32, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(countdown.isImminent ? Color.orange : Color.blue)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+
+                if let course = entry.nextCourseAfterToday, let dayLabel = entry.nextCourseDayLabel {
+                    Text("\(dayLabel) \(course.startTime.formatted)\(course.classroom.isEmpty ? "" : " · \(course.classroom)")")
+                        .font(.system(size: isCompact ? 10 : 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// 今日沒有課程，或今日已結束但未來一週都沒有下一堂課。
+    private var noCoursesContent: some View {
         VStack(spacing: 6) {
             Image(systemName: entry.isTodayFinished ? "checkmark.circle.fill" : "sun.max.fill")
                 .font(.system(size: 24))

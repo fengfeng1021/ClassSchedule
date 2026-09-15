@@ -68,6 +68,61 @@ public struct CourseTimelineEntry: TimelineEntry {
         guard names.indices.contains(weekday - 1) else { return nil }
         return "週" + names[weekday - 1]
     }
+
+    /// 下一堂課的**實際開始時間**：把「哪一天」與「第幾節的時刻」組成完整時間點。
+    public var nextCourseStartDate: Date? {
+        guard let nextCourseDate, let course = nextCourseAfterToday else { return nil }
+        return course.startTime.toDate(baseDate: nextCourseDate)
+    }
+
+    /// 距下一堂課的倒數；沒有下一堂課時為 nil。
+    public var countdownToNextCourse: CourseCountdown? {
+        guard let start = nextCourseStartDate else { return nil }
+        return CourseCountdown(secondsRemaining: Int(start.timeIntervalSince(date)))
+    }
+}
+
+/// 距下一堂課的倒數。
+///
+/// 小工具做不到「每秒跳動」—— 時間軸最快的精度就是每分鐘一格。
+/// 因此這裡把剩餘時間整理成適合當大字的字串，並由時間軸在「今日已結束」期間
+/// 每分鐘產生一個 entry，讓倒數在畫面上真的會走動。
+public struct CourseCountdown {
+    public let secondsRemaining: Int
+
+    public init(secondsRemaining: Int) {
+        self.secondsRemaining = secondsRemaining
+    }
+
+    /// 剩餘不到一小時（改用強調色顯示）。
+    public var isImminent: Bool {
+        secondsRemaining < 3600
+    }
+
+    /// 剩餘不到一分鐘。
+    public var isStartingSoon: Bool {
+        secondsRemaining < 60
+    }
+
+    /// 大字顯示用。例如「11 小時 20 分」「48 分鐘」「2 天 5 小時」「即將開始」。
+    public var valueText: String {
+        let total = max(secondsRemaining, 0)
+        if total < 60 {
+            return "即將開始"
+        }
+
+        let days = total / 86400
+        let hours = (total % 86400) / 3600
+        let minutes = (total % 3600) / 60
+
+        if days > 0 {
+            return hours > 0 ? "\(days) 天 \(hours) 小時" : "\(days) 天"
+        }
+        if hours > 0 {
+            return minutes > 0 ? "\(hours) 小時 \(minutes) 分" : "\(hours) 小時"
+        }
+        return "\(minutes) 分鐘"
+    }
 }
 
 /// 課表桌面小工具時間軸調度中心
@@ -103,9 +158,25 @@ public struct CourseTimelineProvider: TimelineProvider {
         let todayList = ScheduleCalculator.todayCourses(in: data.courses, at: now)
 
         // 今日無課，或今日課程已全部結束：
-        // 只需要單一狀態，並在跨日時重新調度即可。
-        // （其餘更新由 App 端儲存課表時的 WidgetCenter.reloadAllTimelines() 觸發。）
+        // 若還有下一堂課，就改為顯示「倒數下一堂」。
         if todayList.isEmpty || ScheduleCalculator.isDayFinished(in: data.courses, at: now) {
+            let upcoming = ScheduleCalculator.nextUpcomingCourse(in: data.courses, at: now)
+
+            // 倒數要會走動：產生接下來 60 分鐘、每分鐘一個 entry，
+            // 讓「還有 N 小時 N 分」在跨分鐘或跨小時時自動跳動。
+            if upcoming != nil {
+                var entries: [CourseTimelineEntry] = []
+                for minuteOffset in 0..<60 {
+                    if let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: now) {
+                        entries.append(makeEntry(at: entryDate, courses: data.courses, settings: data.settings))
+                    }
+                }
+                let reloadDate = Calendar.current.date(byAdding: .minute, value: 60, to: now) ?? now.addingTimeInterval(3600)
+                completion(Timeline(entries: entries, policy: .after(reloadDate)))
+                return
+            }
+
+            // 完全沒有下一堂課：只需要單一狀態，跨日再重新調度。
             let entry = makeEntry(at: now, courses: data.courses, settings: data.settings)
             let reloadDate = ScheduleCalculator.startOfNextDay(after: now)
             completion(Timeline(entries: [entry], policy: .after(reloadDate)))
