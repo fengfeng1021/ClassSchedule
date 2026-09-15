@@ -1,0 +1,62 @@
+# XcodeGen 專案定義：只負責建置「小工具擴展」。
+#
+# 為什麼需要這個專案：
+# 主程式仍然由 ClassSchedule.swiftpm（SwiftPM App）建置，以維持 Swift Playgrounds
+# 可直接開啟執行；但小工具擴展若用 swiftc 手工組裝，會缺少 Xcode 才會產生的
+# App Intents 中介資料（Metadata.appintents），而這是 iOS 26 上 WidgetKit
+# 列舉擴展能力時會讀取的資料。改用真正的 Xcode app-extension target 建置後，
+# 擴展的產物與 Xcode 原生 Widget Extension 完全一致：
+#   - Metadata.appintents/extract.actionsdata 與 version.json
+#   - Assets.car（WidgetBackground / AccentColor）
+#   - Process Info.plist 自動補齊 DT* 平台鍵
+#   - PkgInfo、正確的 link flags 與 __TEXT/__DATA 區段
+#
+# 產生方式：xcodegen generate
+name: ClassScheduleWidgetExtension
+
+options:
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+targets:
+  ClassScheduleWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: ClassSchedule.swiftpm/WidgetExtension
+        excludes:
+          - "Info.plist"
+          - "WidgetExtension.entitlements"
+      - path: ClassSchedule.swiftpm/Sources/AppModule/Models
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: AppIntents.framework
+      - sdk: UIKit.framework
+      - sdk: Foundation.framework
+    settings:
+      base:
+        PRODUCT_NAME: ClassScheduleWidget
+        PRODUCT_BUNDLE_IDENTIFIER: com.fengfeng.classschedule.widget
+        INFOPLIST_FILE: ClassSchedule.swiftpm/WidgetExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ClassSchedule.swiftpm/WidgetExtension/WidgetExtension.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_EMIT_LOC_STRINGS: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # 與 Xcode 原生 Widget Extension 相同的資源設定
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME: WidgetBackground
+        # 由 CI 以命令列覆寫，這裡只提供安全的預設值
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO

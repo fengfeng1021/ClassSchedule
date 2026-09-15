@@ -5,6 +5,8 @@ xcuserdata/
 *.xcworkspace/
 *.xcodeproj/
 DerivedData/
+build/
+widgetbuild/
 
 # Skills & Temp
 .agent/

@@ -50,77 +50,64 @@ jobs:
             -derivedDataPath ./build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
-      - name: Compile WidgetKit Extension (iOS 26 SDK)
+      - name: Install XcodeGen
         run: |
-          cd ClassSchedule.swiftpm
-          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-          APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
-          WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
-          mkdir -p "$WIDGET_APPEX_DIR"
+          brew install xcodegen
+          xcodegen --version
 
-          echo "Compiling ClassScheduleWidget with swiftc (iOS 26 SDK)..."
-          xcrun -sdk iphoneos swiftc \
-            -target arm64-apple-ios16.0 \
-            -sdk "$SDK_PATH" \
-            -O \
-            -parse-as-library \
-            -emit-executable \
-            -application-extension \
-            -Xlinker -rpath -Xlinker /System/Library/Frameworks \
-            -Xlinker -rpath -Xlinker /usr/lib/swift \
-            -Xlinker -rpath -Xlinker @executable_path/Frameworks \
-            -Xlinker -rpath -Xlinker @executable_path/../../Frameworks \
-            -o "$WIDGET_APPEX_DIR/ClassScheduleWidget" \
-            WidgetExtension/*.swift \
-            Sources/AppModule/Models/Course.swift \
-            Sources/AppModule/Models/Period.swift \
-            Sources/AppModule/Models/TimeOfDay.swift \
-            Sources/AppModule/Models/WidgetSettings.swift \
-            Sources/AppModule/Models/ScheduleSettings.swift \
-            Sources/AppModule/Models/ScheduleCalculator.swift \
-            Sources/AppModule/Models/SharedAppGroup.swift \
-            -framework WidgetKit \
-            -framework SwiftUI \
-            -framework UIKit \
-            -framework Foundation
+      - name: Build Widget.appex as a real Xcode app-extension target
+        run: |
+          # 以真正的 Xcode app-extension target 建置擴展。
+          # 用 swiftc 手工組裝會缺少 Xcode 才會產生的 App Intents 中介資料
+          # （Metadata.appintents），而這是 iOS 26 的 WidgetKit 列舉擴展能力時
+          # 會讀取的資料；可正常側載的樣本擴展（SideStore 自家 AltWidgetExtension）
+          # 都含有此目錄。
+          xcodegen generate
+          xcodebuild -project ClassScheduleWidgetExtension.xcodeproj \
+            -target ClassScheduleWidget \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ./widgetbuild \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
-          echo "=== Verifying extension is a valid iOS executable ==="
-          file "$WIDGET_APPEX_DIR/ClassScheduleWidget"
-          otool -l "$WIDGET_APPEX_DIR/ClassScheduleWidget" | grep -A4 LC_BUILD_VERSION || true
-          otool -L "$WIDGET_APPEX_DIR/ClassScheduleWidget"
+          WIDGET_BUILT=$(ls -d widgetbuild/Build/Products/Release-iphoneos/*.appex)
+          echo "Built appex: $WIDGET_BUILT"
+          echo "=== appex 內容 ==="
+          find "$WIDGET_BUILT" -maxdepth 2 | sort
+          echo "=== 必要產物檢查 ==="
+          test -f "$WIDGET_BUILT/Metadata.appintents/extract.actionsdata" \
+            && echo "  OK   Metadata.appintents/extract.actionsdata" \
+            || { echo "::error::Xcode 未產生 Metadata.appintents，小工具將無法被 iOS 26 列舉"; exit 1; }
+          test -f "$WIDGET_BUILT/Metadata.appintents/version.json" \
+            && echo "  OK   Metadata.appintents/version.json" \
+            || { echo "::error::缺少 Metadata.appintents/version.json"; exit 1; }
+          test -f "$WIDGET_BUILT/Assets.car" \
+            && echo "  OK   Assets.car" \
+            || { echo "::error::缺少 Assets.car"; exit 1; }
+          otool -l "$WIDGET_BUILT/ClassScheduleWidget" | grep -A4 LC_BUILD_VERSION || true
 
-      - name: Assemble and Sign Widget.appex
+      - name: Embed Widget.appex into app bundle
         run: |
           cd ClassSchedule.swiftpm
           APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
+          WIDGET_BUILT=$(ls -d ../widgetbuild/Build/Products/Release-iphoneos/*.appex)
           WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
 
-          echo "Copying widget Info.plist..."
-          cp WidgetExtension/Info.plist "$WIDGET_APPEX_DIR/Info.plist"
+          rm -rf "$APP_PATH/PlugIns"
+          mkdir -p "$APP_PATH/PlugIns"
+          cp -R "$WIDGET_BUILT" "$APP_PATH/PlugIns/"
 
-          # 擴展 bundle 必須有 PkgInfo（值與 CFBundlePackageType 相同）
-          printf 'XPC!' > "$WIDGET_APPEX_DIR/PkgInfo"
+          # 擴展 bundle 必須有 PkgInfo（值與 CFBundlePackageType 相同）；
+          # Xcode 通常會產生，若無則補上。
+          if [ ! -f "$WIDGET_APPEX_DIR/PkgInfo" ]; then
+            printf 'XPC!' > "$WIDGET_APPEX_DIR/PkgInfo"
+          fi
 
-          # 自動同步主程式版本與組建編號至小工具擴展
+          # 同步版本號（Xcode 以建置設定寫入，這裡再確認一次）
           VERSION=$(grep 'displayVersion:' Package.swift | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
           BUILD_NUM=$(grep 'bundleVersion:' Package.swift | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "App version: $VERSION ($BUILD_NUM)"
-
-          set_string_key() {
-            /usr/libexec/PlistBuddy -c "Set :$1 $2" "$WIDGET_APPEX_DIR/Info.plist" 2>/dev/null \
-              || /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$WIDGET_APPEX_DIR/Info.plist"
-          }
-          set_string_key CFBundleShortVersionString "$VERSION"
-          set_string_key CFBundleVersion "$BUILD_NUM"
-          set_string_key CFBundleDisplayName "課表"
-
-          # 從主 App 複製 Xcode 平台資訊（讓擴展具備與 Xcode 原生建置一致的完整鍵值）
-          for key in DTPlatformName DTSDKName DTPlatformVersion DTPlatformBuild DTSDKBuild DTXcode DTXcodeBuild DTCompiler BuildMachineOSBuild; do
-            VALUE=$(/usr/libexec/PlistBuddy -c "Print :$key" "$APP_PATH/Info.plist" 2>/dev/null || true)
-            if [ -n "$VALUE" ]; then
-              set_string_key "$key" "$VALUE"
-            fi
-          done
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$WIDGET_APPEX_DIR/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$WIDGET_APPEX_DIR/Info.plist" || true
 
           echo "=== Widget.appex Info.plist ==="
           plutil -p "$WIDGET_APPEX_DIR/Info.plist"
@@ -194,6 +181,8 @@ jobs:
           test -f "$WIDGET_APPEX_DIR/ClassScheduleWidget"; check $? "widget 執行檔存在"
           test -f "$WIDGET_APPEX_DIR/Info.plist";          check $? "widget Info.plist 存在"
           test -f "$WIDGET_APPEX_DIR/PkgInfo";             check $? "widget PkgInfo 存在"
+          test -f "$WIDGET_APPEX_DIR/Metadata.appintents/extract.actionsdata"; check $? "widget 具備 App Intents 中介資料"
+          test -f "$WIDGET_APPEX_DIR/Assets.car";          check $? "widget 具備 Assets.car"
 
           plutil -p "$WIDGET_APPEX_DIR/Info.plist" | grep -q "com.apple.widgetkit-extension"; check $? "widget NSExtensionPointIdentifier 正確"
           codesign -d --entitlements :- "$WIDGET_APPEX_DIR" 2>&1 | grep -q "group.com.fengfeng.classschedule"; check $? "widget 具備 App Group 授權"
