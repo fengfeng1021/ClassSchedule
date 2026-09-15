@@ -11,6 +11,9 @@ public struct CourseTimelineEntry: TimelineEntry {
     public let progress: DayProgressInfo
     public let settings: WidgetSettings
 
+    /// 使用者設定的課前提醒分鐘數（來自 ScheduleSettings；未設定時為 nil）
+    public let classReminderMinutes: Int?
+
     /// 今日之後最近的一堂課（今日已結束或今日無課時顯示用）。
     public let nextCourseAfterToday: Course?
     /// `nextCourseAfterToday` 實際發生的日期，用於產生「明天」「週三」標示。
