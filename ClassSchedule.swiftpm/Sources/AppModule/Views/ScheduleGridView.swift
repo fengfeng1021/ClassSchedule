@@ -18,6 +18,8 @@ public enum AppMainTab: String, CaseIterable, Identifiable {
 public struct ScheduleGridView: View {
     @ObservedObject var store: CourseStore
 
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var selectedTab: AppMainTab = .schedule
     @State private var currentDate = Date()
     @State private var courseToEdit: Course?
@@ -135,6 +137,12 @@ public struct ScheduleGridView: View {
             }
             .onReceive(timer) { input in
                 currentDate = input
+            }
+            .onChange(of: scenePhase) { phase in
+                // 回到前景時補排上課提醒，並在進入提醒窗口時啟動鎖屏倒數卡片
+                // （Live Activity 依系統限制只能在 App 處於前景時啟動）
+                guard phase == .active else { return }
+                store.refreshClassReminders()
             }
             .preferredColorScheme(settings.appearanceMode.colorScheme)
             .task {

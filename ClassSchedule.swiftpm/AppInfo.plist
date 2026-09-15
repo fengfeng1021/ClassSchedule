@@ -15,6 +15,13 @@
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <true/>
     <!--
+        上課提醒的鎖屏倒數卡片使用 Live Activity。
+        NSSupportsLiveActivities 必須寫在主程式的 Info.plist；
+        只有本機（非推播）啟動時不需要任何額外 entitlement。
+    -->
+    <key>NSSupportsLiveActivities</key>
+    <true/>
+    <!--
         必須保持 false（或不存在）：一旦為 true，即使使用 iOS 26 SDK 建置，
         系統仍會強制以舊版外觀渲染，工具列與彈窗就不會出現 Liquid Glass。
     -->

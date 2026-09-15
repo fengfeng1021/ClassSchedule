@@ -5,6 +5,11 @@ import SwiftUI
 struct ClassScheduleWidgetBundle: WidgetBundle {
     var body: some Widget {
         ClassScheduleWidget()
+
+        // 上課倒數 Live Activity（鎖屏大倒數卡片）
+        if #available(iOS 16.2, *) {
+            ClassSessionLiveActivity()
+        }
     }
 }
 

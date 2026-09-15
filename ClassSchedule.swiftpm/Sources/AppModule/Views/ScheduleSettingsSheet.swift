@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import UserNotifications
 
 /// 課表節次時段與全域檢視設定彈窗（支援各大專院校與中學通用時段自訂、各節次起訖時間自由微調、外觀模式切換）
 public struct ScheduleSettingsSheet: View {
@@ -22,9 +24,22 @@ public struct ScheduleSettingsSheet: View {
     @State private var showWeekend: Bool = false
     @State private var showCredits: Bool = true
     @State private var showTeacher: Bool = true
+    /// 上課提醒分鐘數（手動輸入；空字串 = 不提醒）
+    @State private var reminderMinutesText: String = ""
+    @State private var notificationStatus: UNAuthorizationStatus?
     @State private var showingClearAlert = false
     @State private var showingSuccessToast = false
     @State private var toastMessage = ""
+
+    /// 解析使用者輸入的分鐘數，限制在 1...120；空字串或無效輸入回傳 nil。
+    private var reminderValue: Int? {
+        guard let value = Int(reminderMinutesText.filter(\.isNumber)), value > 0 else { return nil }
+        return min(value, 120)
+    }
+
+    private func refreshNotificationStatus() async {
+        notificationStatus = await ClassReminderService.shared.authorizationStatus()
+    }
 
     public init(store: CourseStore) {
         self.store = store
@@ -33,6 +48,9 @@ public struct ScheduleSettingsSheet: View {
         _showWeekend = State(initialValue: store.settings.showWeekend)
         _showCredits = State(initialValue: store.settings.showCredits)
         _showTeacher = State(initialValue: store.settings.showTeacher)
+        _reminderMinutesText = State(
+            initialValue: store.settings.classReminderMinutes.map(String.init) ?? ""
+        )
     }
 
     public var body: some View {
@@ -164,6 +182,50 @@ public struct ScheduleSettingsSheet: View {
                     Toggle("顯示授課教師", isOn: $showTeacher)
                 }
 
+                // MARK: 6. 上課提醒（課前 N 分鐘）
+                Section {
+                    HStack {
+                        Text("課前提醒")
+                        Spacer()
+                        TextField("手動輸入", text: $reminderMinutesText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
+                            .frame(width: 88)
+                        Text("分鐘")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        Task {
+                            await ClassReminderService.shared.requestAuthorization()
+                            await refreshNotificationStatus()
+                            await ClassReminderService.shared.sendTestNotification(minutes: reminderValue)
+                        }
+                    } label: {
+                        Label("送出測試提醒", systemImage: "bell.badge")
+                    }
+
+                    if notificationStatus == .denied {
+                        Button {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            Label("通知已被關閉，前往系統設定開啟", systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                } header: {
+                    Text("上課提醒")
+                } footer: {
+                    if let value = reminderValue {
+                        Text("每堂課前 \(value) 分鐘會跳出通知，內容包含課程名稱、教室與上課時間。開啟 App 時，鎖定畫面還會出現倒數卡片（快到上課時間時自動出現，倒數由系統每秒更新）。")
+                    } else {
+                        Text("沒有預設值 —— 請手動輸入分鐘數（1～120）才會開始提醒；清空欄位即可關閉提醒。")
+                    }
+                }
+
                 // MARK: 6. 資料維護
                 Section("資料維護") {
                     HStack {
@@ -230,6 +292,9 @@ public struct ScheduleSettingsSheet: View {
             }
             .navigationTitle("課表設定")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await refreshNotificationStatus()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") {
@@ -285,6 +350,7 @@ public struct ScheduleSettingsSheet: View {
         newSettings.showWeekend = showWeekend
         newSettings.showCredits = showCredits
         newSettings.showTeacher = showTeacher
+        newSettings.classReminderMinutes = reminderValue
         store.updateSettings(newSettings)
         dismiss()
     }

@@ -671,7 +671,36 @@ public struct ClassScheduleWidgetEntryView: View {
         let isTodayEmpty = entry.todayCourses.isEmpty
         let isTodayFinished = !entry.todayCourses.isEmpty && entry.currentCourse == nil && entry.nextCourse == nil
 
-        if isTodayFinished {
+        if entry.isInClassReminderWindow,
+           let course = entry.nextCourse?.course,
+           let windowStart = entry.classReminderWindowStart,
+           let startDate = entry.upcomingCourseStartDate,
+           windowStart < startDate {
+            // 課前提醒窗口：以倒數為主角（倒數由系統渲染，每秒自動更新）
+            VStack(alignment: .leading, spacing: 1) {
+                Text(course.name)
+                    .font(.system(size: 12.5, weight: .black, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                HStack(spacing: 5) {
+                    if settings.showClassroom && !course.classroom.isEmpty {
+                        Label(course.classroom, systemImage: "location.fill")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(course.color)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Text(timerInterval: windowStart...startDate, countsDown: true)
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(course.color)
+                        .lineLimit(1)
+                }
+            }
+        } else if isTodayFinished {
             VStack(alignment: .leading, spacing: 1) {
                 Text("今日課程已結束")
                     .font(.system(size: 12, weight: .black, design: .rounded))
@@ -727,7 +756,9 @@ public struct ClassScheduleWidgetEntryView: View {
 
     @ViewBuilder
     private var accessoryInlineView: some View {
-        if let countdown = entry.countdownToNextCourse, entry.isTodayFinished {
+        if entry.isInClassReminderWindow, let course = entry.nextCourse?.course {
+            Text("即將上課 · \(course.name) \(course.classroom.isEmpty ? "" : "· " + course.classroom)")
+        } else if let countdown = entry.countdownToNextCourse, entry.isTodayFinished {
             Text("距下一堂還有 \(countdown.valueText)")
         } else if let course = entry.targetCourse {
             Text("\(course.name) \(course.classroom.isEmpty ? "" : "· " + course.classroom)")

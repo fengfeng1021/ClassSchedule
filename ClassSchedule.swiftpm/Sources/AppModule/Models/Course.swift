@@ -118,6 +118,11 @@ public struct Course: Identifiable, Codable, Hashable {
 
     /// 對應系統顏色
     public var color: Color {
+        Course.color(for: colorName)
+    }
+
+    /// 由顏色名稱取得系統顏色（Live Activity 等只帶得走名稱的地方共用同一份對照表）
+    public static func color(for colorName: String) -> Color {
         switch colorName.lowercased() {
         case "blue": return .blue
         case "indigo": return .indigo

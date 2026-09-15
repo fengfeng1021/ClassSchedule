@@ -194,6 +194,31 @@ public final class CourseStore: ObservableObject {
         #endif
     }
 
+    /// 重新排程上課提醒，並同步鎖屏倒數卡片。
+    ///
+    /// 只在「使用者已手動設定提醒分鐘數」時才動作 —— 上課提醒刻意沒有預設值，
+    /// 因此全新安裝不會被排入任何提醒。
+    private func scheduleClassReminders() {
+        guard settings.isClassReminderEnabled else { return }
+
+        let courses = self.courses
+        let settings = self.settings
+
+        Task {
+            await ClassReminderService.shared.reschedule(courses: courses, settings: settings)
+            if #available(iOS 16.2, *) {
+                ClassLiveActivityController.shared.sync(courses: courses, settings: settings)
+            }
+        }
+    }
+
+    /// App 進入前景時呼叫：補排上課提醒（通知額度會隨時間消耗）並同步鎖屏倒數卡片。
+    ///
+    /// Live Activity 只能在 App 處於前景時啟動，所以這是「倒數卡片能不能出現」的關鍵時機。
+    public func refreshClassReminders() {
+        scheduleClassReminders()
+    }
+
     public func saveSettings() {
         do {
             let data = try JSONEncoder().encode(settings)
@@ -215,6 +240,8 @@ public final class CourseStore: ObservableObject {
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif
+
+        scheduleClassReminders()
     }
 
     private func syncToSharedGroup() {

@@ -80,6 +80,36 @@ public struct CourseTimelineEntry: TimelineEntry {
         guard let start = nextCourseStartDate else { return nil }
         return CourseCountdown(secondsRemaining: Int(start.timeIntervalSince(date)))
     }
+
+    // MARK: - 課前提醒窗口
+
+    /// 下一堂課（今天還沒開始的那一堂）的實際開始時間。
+    public var upcomingCourseStartDate: Date? {
+        guard let nextCourse else { return nil }
+        return nextCourse.course.startTime.toDate(baseDate: date)
+    }
+
+    /// 使用者設定的課前提醒分鐘數（未設定時為 nil）。
+    public var reminderMinutes: Int? {
+        guard let minutes = settings.classReminderMinutes, minutes > 0 else { return nil }
+        return minutes
+    }
+
+    /// 是否已進入「課前提醒窗口」——可以開始倒數下一堂課。
+    public var isInClassReminderWindow: Bool {
+        guard let start = upcomingCourseStartDate, let minutes = reminderMinutes else { return false }
+        return date >= start.addingTimeInterval(TimeInterval(-minutes * 60)) && date < start
+    }
+
+    /// 提醒窗口的起點。
+    ///
+    /// 這個值同時當作倒數計時區間的下界：區間必須永遠「下界 < 上界」，
+    /// 否則 `ClosedRange` 會直接觸發執行期崩潰。
+    /// 用「上課時間 − 提醒分鐘數」當下界可保證成立（連時間軸往後多排的 entry 也安全）。
+    public var classReminderWindowStart: Date? {
+        guard let start = upcomingCourseStartDate, let minutes = reminderMinutes else { return nil }
+        return start.addingTimeInterval(TimeInterval(-minutes * 60))
+    }
 }
 
 /// 距下一堂課的倒數。

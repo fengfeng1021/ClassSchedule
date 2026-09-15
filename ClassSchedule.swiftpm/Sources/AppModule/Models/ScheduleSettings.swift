@@ -47,6 +47,16 @@ public struct ScheduleSettings: Codable, Equatable {
     /// 桌面小工具設定
     public var widgetSettings: WidgetSettings
 
+    /// 上課前幾分鐘提醒。
+    ///
+    /// **刻意沒有預設值**（預設為 nil = 不提醒），必須由使用者手動輸入才會生效。
+    public var classReminderMinutes: Int?
+
+    /// 是否已設定上課提醒。
+    public var isClassReminderEnabled: Bool {
+        (classReminderMinutes ?? 0) > 0
+    }
+
     public init(
         periods: [Period] = Period.asiaUniversityStandardPeriods,
         appearanceMode: AppAppearanceMode = .system,
@@ -56,7 +66,8 @@ public struct ScheduleSettings: Codable, Equatable {
         showWeekend: Bool = false,
         showCredits: Bool = true,
         showTeacher: Bool = true,
-        widgetSettings: WidgetSettings = WidgetSettings()
+        widgetSettings: WidgetSettings = WidgetSettings(),
+        classReminderMinutes: Int? = nil
     ) {
         self.periods = periods.isEmpty ? Period.asiaUniversityStandardPeriods : periods
         self.appearanceMode = appearanceMode
@@ -67,6 +78,7 @@ public struct ScheduleSettings: Codable, Equatable {
         self.showCredits = showCredits
         self.showTeacher = showTeacher
         self.widgetSettings = widgetSettings
+        self.classReminderMinutes = classReminderMinutes
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,6 +92,7 @@ public struct ScheduleSettings: Codable, Equatable {
         self.showCredits = try container.decodeIfPresent(Bool.self, forKey: .showCredits) ?? true
         self.showTeacher = try container.decodeIfPresent(Bool.self, forKey: .showTeacher) ?? true
         self.widgetSettings = try container.decodeIfPresent(WidgetSettings.self, forKey: .widgetSettings) ?? WidgetSettings()
+        self.classReminderMinutes = try container.decodeIfPresent(Int.self, forKey: .classReminderMinutes)
     }
 
     /// 目前實際參與渲染的活躍節次列表（自動過濾使用者未開啟的時段）
