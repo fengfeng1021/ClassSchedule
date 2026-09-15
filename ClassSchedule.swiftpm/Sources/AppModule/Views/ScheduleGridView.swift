@@ -295,7 +295,7 @@ public struct ScheduleGridView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .bold))
                     }
-                    .appleToolbarProminentActionStyle()
+                    .appleToolbarActionStyle()
                     .appleCircularButtonShape()
                     .accessibilityLabel("新增課程")
                 }

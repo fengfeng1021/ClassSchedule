@@ -22,7 +22,7 @@ import SwiftUI
 // MARK: - 工具列按鈕
 
 extension View {
-    /// 一般工具列動作按鈕（選單、匯入⋯）。
+    /// 一般工具列動作按鈕（選單、匯入、新增課程⋯）。
     ///
     /// iOS 26 以上交給系統工具列自動提供液態玻璃圓盤底盤，因此**不再**疊加任何
     /// `buttonStyle`；舊版會用 `.bordered` 手動畫底框，在新系統上反而會與系統底盤
@@ -37,20 +37,6 @@ extension View {
         }
         #else
         self.buttonStyle(.bordered).tint(.primary)
-        #endif
-    }
-
-    /// 主要工具列動作按鈕（例如「新增課程」的藍色圓盤）。
-    @ViewBuilder
-    func appleToolbarProminentActionStyle() -> some View {
-        #if compiler(>=6.2)
-        if #available(iOS 26.0, *) {
-            self.buttonStyle(.glassProminent).tint(.blue)
-        } else {
-            self.buttonStyle(.borderedProminent).tint(.blue)
-        }
-        #else
-        self.buttonStyle(.borderedProminent).tint(.blue)
         #endif
     }
 }

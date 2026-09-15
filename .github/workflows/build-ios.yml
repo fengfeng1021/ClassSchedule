@@ -82,8 +82,7 @@ jobs:
             -framework WidgetKit \
             -framework SwiftUI \
             -framework UIKit \
-            -framework Foundation \
-            -framework ExtensionFoundation
+            -framework Foundation
 
           echo "=== Verifying extension is a valid iOS executable ==="
           file "$WIDGET_APPEX_DIR/ClassScheduleWidget"
@@ -203,6 +202,13 @@ jobs:
           echo "  App CFBundleDisplayName = ${DISPLAY_NAME:-<未設定>}"
           test -n "$DISPLAY_NAME"; check $? "主 App 已設定 CFBundleDisplayName"
           otool -l "$WIDGET_APPEX_DIR/ClassScheduleWidget" | grep -q "LC_MAIN"; check $? "widget 具備 LC_MAIN 入口點"
+
+          # 對照可正常側載的 AltWidgetExtension.appex：只允許 NSExtension 一種擴展點宣告
+          if plutil -p "$WIDGET_APPEX_DIR/Info.plist" | grep -q "EXAppExtensionAttributes"; then
+            check 1 "widget Info.plist 不應包含 EXAppExtensionAttributes"
+          else
+            check 0 "widget Info.plist 不應包含 EXAppExtensionAttributes"
+          fi
 
           echo "--- widget binary build version ---"
           otool -l "$WIDGET_APPEX_DIR/ClassScheduleWidget" | grep -A4 "LC_BUILD_VERSION" || true

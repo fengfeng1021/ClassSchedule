@@ -8,6 +8,8 @@ public struct AddWidgetGuideSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var hasSynced: Bool = false
     @State private var syncToastVisible: Bool = false
+    @State private var diagnosticReport: String?
+    @State private var diagnosticCopied: Bool = false
 
     public init() {}
 
@@ -20,11 +22,15 @@ public struct AddWidgetGuideSheet: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
 
-                    // MARK: 2. 桌面加入 3 步驟教學
+                    // MARK: 2. 小工具註冊診斷（回報問題用）
+                    diagnosticsCard
+                        .padding(.horizontal, 16)
+
+                    // MARK: 3. 桌面加入 3 步驟教學
                     stepsTutorialCard
                         .padding(.horizontal, 16)
 
-                    // MARK: 3. SideStore / iOS 找不到小工具專屬排查秘笈
+                    // MARK: 4. SideStore / iOS 找不到小工具專屬排查秘笈
                     troubleshootingCard
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
@@ -38,6 +44,11 @@ public struct AddWidgetGuideSheet: View {
                     Button("關閉") {
                         dismiss()
                     }
+                }
+            }
+            .onAppear {
+                if diagnosticReport == nil {
+                    diagnosticReport = WidgetDiagnostics.makeSummary().report
                 }
             }
         }
@@ -176,7 +187,72 @@ public struct AddWidgetGuideSheet: View {
         )
     }
 
-    // MARK: - 2. 桌面加入 3 步驟教學
+    // MARK: - 2. 小工具註冊診斷（回報問題用）
+
+    /// 直接讀取本 App bundle 內的實際狀態，判斷失敗發生在哪一環：
+    /// 擴展有沒有被安裝、簽章授權有沒有生效。使用者可一鍵複製整份報告回報。
+    private var diagnosticsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "stethoscope")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.indigo)
+
+                Text("小工具註冊診斷")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Button {
+                    UIPasteboard.general.string = diagnosticReport ?? ""
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    withAnimation {
+                        diagnosticCopied = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation { diagnosticCopied = false }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: diagnosticCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(diagnosticCopied ? "已複製" : "複製報告")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(diagnosticCopied ? Color.green : Color.indigo)
+                }
+                .disabled(diagnosticReport == nil)
+            }
+
+            Text("檢查「擴展是否真的被安裝」與「App Group 授權是否生效」，回報問題時請複製下方完整內容。")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(diagnosticReport ?? "正在讀取…")
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(uiColor: .tertiarySystemGroupedBackground))
+                )
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.indigo.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    // MARK: - 3. 桌面加入 3 步驟教學
 
     private var stepsTutorialCard: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -277,8 +353,8 @@ public struct AddWidgetGuideSheet: View {
                 // 排查點 2：安裝時保留擴展
                 troubleshootingRow(
                     badge: "重點 2",
-                    title: "安裝時務必保留擴展（Keep App Extensions）",
-                    content: "小工具是獨立的 Widget Extension，需要額外佔用 1 個 App ID（免費帳號上限 3 個）。\n👉 解法：安裝時若跳出擴展清單，請選擇保留全部擴展；並可至 SideStore「設定 → Advanced → Experimental Features」開啟「Customize App Extensions」與「Use Main Profile for Extensions」，避免擴展被自動移除。"
+                    title: "先開啟擴展自訂，再安裝",
+                    content: "SideStore 預設會在「更新」時自動刪除「新版本有、但裝置上已安裝版本沒有」的擴展。若先前安裝的版本沒有成功帶上小工具擴展，之後每次更新都會被再次剔除。\n👉 解法：先到 SideStore「設定 → Advanced → User Customizations → GENERAL」，把「Customize App Extensions」打開；之後安裝時會跳出擴展清單，務必選擇保留全部擴展。\n👉 小工具需要額外 1 個 App ID（免費帳號上限 3 個），請確認 SideStore 的 App IDs 還有名額。"
                 )
 
                 Divider()
@@ -287,7 +363,7 @@ public struct AddWidgetGuideSheet: View {
                 troubleshootingRow(
                     badge: "重點 3",
                     title: "確認 App Group 共享授權已生效",
-                    content: "本頁上方的「小工具共享狀態」若顯示「未授權」，代表簽章中缺少 App Group 授權，小工具只會顯示範例課表。此授權由 IPA 內的擴展與主程式共同宣告，重新安裝含擴展的版本後即會顯示為「已就緒」。"
+                    content: "本頁上方的「小工具共享狀態」若顯示「未授權」，代表簽章中缺少 App Group 授權，小工具只會顯示範例課表。此授權由 IPA 內的擴展與主程式共同宣告，安裝含擴展的版本後即會顯示為「已就緒」。"
                 )
 
                 Divider()

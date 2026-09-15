@@ -17,9 +17,9 @@
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.9</string>
+    <string>1.1.1</string>
     <key>CFBundleVersion</key>
-    <string>10</string>
+    <string>12</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
         <string>iPhoneOS</string>
@@ -31,11 +31,17 @@
         <integer>1</integer>
         <integer>2</integer>
     </array>
-    <key>EXAppExtensionAttributes</key>
-    <dict>
-        <key>EXExtensionPointIdentifier</key>
-        <string>com.apple.widgetkit-extension</string>
-    </dict>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <!--
+        WidgetKit 擴展只宣告 NSExtension 一種擴展點。
+        實測對照：SideStore 自家可正常側載的 AltWidgetExtension.appex（Xcode 26.4.1 建置）
+        的 Info.plist「只有」NSExtension，完全沒有 EXAppExtensionAttributes。
+        多宣告 ExtensionKit 的 EXAppExtensionAttributes 會讓系統額外嘗試以 ExtensionKit
+        路徑註冊擴展，反而可能導致小工具不出現在小工具庫，因此予以移除。
+    -->
     <key>NSExtension</key>
     <dict>
         <key>NSExtensionPointIdentifier</key>

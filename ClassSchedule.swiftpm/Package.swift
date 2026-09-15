@@ -18,8 +18,8 @@ let package = Package(
             targets: ["AppModule"],
             bundleIdentifier: "com.fengfeng.classschedule",
             teamIdentifier: "",
-            displayVersion: "1.1.0",
-            bundleVersion: "11",
+            displayVersion: "1.1.1",
+            bundleVersion: "12",
             appIcon: .placeholder(icon: .calendar),
             accentColor: .presetColor(.indigo),
             supportedDeviceFamilies: [
