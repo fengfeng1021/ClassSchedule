@@ -2,14 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!--
-        小工具擴展的 App Group 授權宣告，必須與主 App 完全一致。
-        側載工具會分別為 App ID 與擴展 App ID 指派同一個 App Group，並改寫為
-        group.com.fengfeng.classschedule.<TeamID>；小工具在執行期由
-        SharedAppGroup 讀取 Info.plist 的 ALTAppGroups 取得該識別碼。
-        缺少這段宣告時，SideStore 的 updateAppGroups 會直接跳過指派，
-        小工具便只能顯示範例資料。
-    -->
     <key>com.apple.security.application-groups</key>
     <array>
         <string>group.com.fengfeng.classschedule</string>
