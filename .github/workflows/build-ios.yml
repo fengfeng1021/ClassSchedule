@@ -182,7 +182,8 @@ jobs:
           FAILED=0
 
           check() {
-            if [ "$1" = "1" ]; then
+            # 第一個參數是前一個指令的結束碼：0 代表成功
+            if [ "$1" -eq 0 ] 2>/dev/null; then
               echo "  OK    $2"
             else
               echo "::error::$2"
@@ -209,6 +210,9 @@ jobs:
           echo "=== 最終 bundle 結構 ==="
           find "$APP_PATH" -maxdepth 2 | sort
 
+          if [ "$FAILED" -eq 0 ]; then
+            echo "=== 所有驗證通過 ==="
+          fi
           exit $FAILED
 
       - name: Package IPA
