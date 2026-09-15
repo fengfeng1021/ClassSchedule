@@ -159,9 +159,10 @@ public final class ClassReminderService {
             let weekday = ScheduleCalculator.normalizedDayOfWeek(from: day, calendar: calendar)
 
             for course in courses where course.dayOfWeek == weekday {
-                guard let startDate = course.startTime.toDate(baseDate: day, calendar: calendar),
-                      let endDate = course.endTime.toDate(baseDate: day, calendar: calendar) else { continue }
-                // 今天已開始的課就不必再提醒
+                // TimeOfDay.toDate 會自行處理曆法失敗，回傳非 optional 的 Date
+                let startDate = course.startTime.toDate(baseDate: day, calendar: calendar)
+                let endDate = course.endTime.toDate(baseDate: day, calendar: calendar)
+                // 今天已結束的課就不必再提醒
                 guard endDate > date else { continue }
                 results.append(CourseOccurrence(course: course, startDate: startDate, endDate: endDate))
             }
