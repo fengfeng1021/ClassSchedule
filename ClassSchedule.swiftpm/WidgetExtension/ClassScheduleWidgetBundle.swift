@@ -21,6 +21,7 @@ struct ClassScheduleWidget: Widget {
             .systemSmall,
             .systemMedium,
             .systemLarge,
+            .systemExtraLarge,
             .accessoryRectangular,
             .accessoryInline
         ])

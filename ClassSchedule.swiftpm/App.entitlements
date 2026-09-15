@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        主 App 的 App Group 授權宣告。
+        側載工具（SideStore / AltStore）會讀取這裡的宣告，向 Apple 後台註冊
+        App Group，並在簽名時改寫為 group.com.fengfeng.classschedule.<TeamID>，
+        同時把真正可用的識別碼寫進 Info.plist 的 ALTAppGroups 鍵。
+        若缺少這段宣告，小工具將永遠無法與主 App 共享課表資料。
+    -->
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.fengfeng.classschedule</string>
+    </array>
+</dict>
+</plist>

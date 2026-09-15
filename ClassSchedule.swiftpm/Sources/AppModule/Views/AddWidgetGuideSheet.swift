@@ -45,6 +45,18 @@ public struct AddWidgetGuideSheet: View {
 
     // MARK: - 1. 一鍵前往桌面行動卡片
 
+    /// App Group 共享授權狀態說明。
+    ///
+    /// 側載工具（SideStore / AltStore）會把 App Group 識別碼改寫為
+    /// `group.com.fengfeng.classschedule.<TeamID>`；若簽章中缺少 App Group 授權，
+    /// 主程式與小工具就無法共享課表資料。
+    private var sharedStatusDetail: String {
+        if let identifier = SharedAppGroup.resolvedGroupID {
+            return "共享容器：\(identifier)"
+        }
+        return "尚未取得 App Group 授權，小工具目前只會顯示範例課表；請確認安裝時 IPA 內含小工具擴展。"
+    }
+
     private var quickActionCard: some View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
@@ -67,21 +79,25 @@ public struct AddWidgetGuideSheet: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text("小工具時間軸狀態")
+                        Text("小工具共享狀態")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.primary)
 
-                        Text("已就緒")
+                        Text(SharedAppGroup.isAvailable ? "已就緒" : "未授權")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(SharedAppGroup.isAvailable ? Color.green : Color.orange)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.12), in: Capsule())
+                            .background(
+                                (SharedAppGroup.isAvailable ? Color.green : Color.orange).opacity(0.12),
+                                in: Capsule()
+                            )
                     }
 
-                    Text("所有課程資料已完成 App Group 共享同步")
+                    Text(sharedStatusDetail)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
@@ -249,29 +265,47 @@ public struct AddWidgetGuideSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                // 排查點 1：SideStore 安裝時務必保留擴展 (Keep App Extensions)
+                // 排查點 1：必須「重新安裝」，不能用更新覆蓋
                 troubleshootingRow(
                     badge: "重點 1",
-                    title: "SideStore 務必選擇「Keep App Extensions」",
-                    content: "小工具屬於獨立 Widget Extension（需占用 1 個 App ID，免費帳號共可簽 3 個，剛好滿額）。\n👉 解法：在 SideStore 安裝或更新 IPA 時，若跳出擴展提示，務必點選「Keep App Extensions (保留擴展)」或「Use Main Profile」！若選了「Remove App Extensions」，小工具就會被 SideStore 剔除。\n👉 若 App ID 滿額：可至 SideStore 底部「DIAGNOSTICS」->「Experimental Features」清理過期 App ID。"
+                    title: "請「刪除後重新安裝」，不要用更新覆蓋",
+                    content: "SideStore 在更新既有 App 時，會自動移除「新版本有、但裝置上已安裝版本沒有」的擴展。若你先前安裝的版本沒有成功帶上小工具擴展，之後每一次更新都會被再次剔除。\n👉 解法：先長按桌面圖示刪除本 App（可先在此頁面匯出課表備份），再到 SideStore 重新安裝一次。"
                 )
 
                 Divider()
 
-                // 排查點 2：iPadOS / iOS 系統快取重新索引（最常見、最有效！）
+                // 排查點 2：安裝時保留擴展
                 troubleshootingRow(
                     badge: "重點 2",
-                    title: "強制觸發 iPadOS 重整小工具快取庫（最靈驗）",
-                    content: "自簽 App 安裝後，系統進程（pkd）經常存在快取延遲，不會立即把新 App 加入小工具搜尋索引。\n👉 解法：至 iPad「設定 -> 一般 -> 語言與地區」，隨意新增或切換一種語言（或重新開機 iPad），系統就會立刻被動強制重新掃描所有 App，桌面小工具清單即可立即出現「課表」！"
+                    title: "安裝時務必保留擴展（Keep App Extensions）",
+                    content: "小工具是獨立的 Widget Extension，需要額外佔用 1 個 App ID（免費帳號上限 3 個）。\n👉 解法：安裝時若跳出擴展清單，請選擇保留全部擴展；並可至 SideStore「設定 → Advanced → Experimental Features」開啟「Customize App Extensions」與「Use Main Profile for Extensions」，避免擴展被自動移除。"
                 )
 
                 Divider()
 
-                // 排查點 3：至少開啟過 App 一次
+                // 排查點 3：App Group 共享授權
                 troubleshootingRow(
                     badge: "重點 3",
+                    title: "確認 App Group 共享授權已生效",
+                    content: "本頁上方的「小工具共享狀態」若顯示「未授權」，代表簽章中缺少 App Group 授權，小工具只會顯示範例課表。此授權由 IPA 內的擴展與主程式共同宣告，重新安裝含擴展的版本後即會顯示為「已就緒」。"
+                )
+
+                Divider()
+
+                // 排查點 4：系統小工具索引快取
+                troubleshootingRow(
+                    badge: "重點 4",
+                    title: "強制重建系統小工具索引",
+                    content: "自簽 App 安裝後，系統的小工具索引（pkd）常有快取延遲。\n👉 解法：重新開機，或至「設定 → 一般 → 語言與地區」切換一次語言，系統會立刻重新掃描所有 App。"
+                )
+
+                Divider()
+
+                // 排查點 5：至少開啟過 App 一次
+                troubleshootingRow(
+                    badge: "重點 5",
                     title: "安裝後必須開啟過一次 App",
-                    content: "iOS 規定任何應用程式必須在設備上至少打開過一次，系統才會向小工具框架註冊該應用的 Extension。"
+                    content: "iOS 規定 App 必須在裝置上至少被開啟過一次，系統才會向 WidgetKit 註冊其擴展。"
                 )
 
                 Divider()

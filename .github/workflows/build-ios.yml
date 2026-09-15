@@ -12,64 +12,60 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    # macOS 26 映像原生內建 Xcode 26（iOS 26 SDK）。
+    # 這是本專案視覺一致性的關鍵：Liquid Glass 只在以 iOS 26 SDK 建置時才會被系統啟用，
+    # 用 macOS 15 / Xcode 16（iOS 18 SDK）建置出來的 App 在 iPadOS 26 / 27 上會被
+    # 系統以「相容模式」渲染，工具列不會出現液態玻璃圓盤。
+    runs-on: macos-26
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Verify and Select Xcode 16 (iOS 18 SDK)
+      - name: Select Xcode 26 (iOS 26 SDK)
         run: |
           ls -ld /Applications/Xcode*.app || true
-          if [ -d "/Applications/Xcode_16.4.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.3.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.2.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.1.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
-          elif [ -d "/Applications/Xcode.app" ]; then
-            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-          fi
+          for candidate in Xcode_26.6 Xcode_26.5 Xcode_26.4.1 Xcode_26.4 Xcode_26.3 Xcode_26.2 Xcode_26.1.1 Xcode_26.1 Xcode_26.0.1 Xcode_26.0 Xcode; do
+            if [ -d "/Applications/${candidate}.app" ]; then
+              sudo xcode-select -s "/Applications/${candidate}.app/Contents/Developer"
+              echo "Selected ${candidate}"
+              break
+            fi
+          done
           sudo xcodebuild -runFirstLaunch || true
           xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
-          xcrun simctl list runtimes || true
+          SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iOS SDK: ${SDK_VERSION}"
+          SDK_MAJOR=${SDK_VERSION%%.*}
+          if [ "${SDK_MAJOR}" -lt 26 ]; then
+            echo "::error::需要 iOS 26 以上的 SDK 才會啟用 Liquid Glass，目前為 ${SDK_VERSION}"
+            exit 1
+          fi
 
-      - name: Build with xcodebuild
+      - name: Build App with xcodebuild
         run: |
           cd ClassSchedule.swiftpm
-          xcodebuild -scheme ClassSchedule -destination 'generic/platform=iOS' -configuration Release -derivedDataPath ./build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          xcodebuild -scheme ClassSchedule \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -derivedDataPath ./build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
-      - name: Package IPA
+      - name: Compile WidgetKit Extension (iOS 26 SDK)
         run: |
           cd ClassSchedule.swiftpm
-          mkdir -p Payload
-          cp -r build/Build/Products/*-iphoneos/*.app Payload/
-          APP_PATH=$(ls -d Payload/*.app)
-          echo "Configuring Info.plist in $APP_PATH"
-
-          # 啟用 120Hz ProMotion 超高更新率與原生全螢幕渲染
-          /usr/libexec/PlistBuddy -c "Add :CADisableMinimumFrameDurationOnPhone bool true" "$APP_PATH/Info.plist" || /usr/libexec/PlistBuddy -c "Set :CADisableMinimumFrameDurationOnPhone true" "$APP_PATH/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :CADisableMinimumFrameDuration bool true" "$APP_PATH/Info.plist" || /usr/libexec/PlistBuddy -c "Set :CADisableMinimumFrameDuration true" "$APP_PATH/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :UILaunchScreen dict" "$APP_PATH/Info.plist" || true
-          /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool false" "$APP_PATH/Info.plist" || /usr/libexec/PlistBuddy -c "Set :UIRequiresFullScreen false" "$APP_PATH/Info.plist"
-
-          echo "--- Info.plist verification ---"
-          plutil -p "$APP_PATH/Info.plist" | grep -E "CADisable|UILaunch" || true
-
-          echo "=== Building Native WidgetKit Extension ==="
           SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
           WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
           mkdir -p "$WIDGET_APPEX_DIR"
 
-          echo "Compiling ClassScheduleWidget with swiftc..."
+          echo "Compiling ClassScheduleWidget with swiftc (iOS 26 SDK)..."
           xcrun -sdk iphoneos swiftc \
             -target arm64-apple-ios16.0 \
             -sdk "$SDK_PATH" \
             -O \
             -parse-as-library \
             -emit-executable \
+            -application-extension \
             -Xlinker -rpath -Xlinker /System/Library/Frameworks \
             -Xlinker -rpath -Xlinker /usr/lib/swift \
             -Xlinker -rpath -Xlinker @executable_path/Frameworks \
@@ -82,38 +78,148 @@ jobs:
             Sources/AppModule/Models/WidgetSettings.swift \
             Sources/AppModule/Models/ScheduleSettings.swift \
             Sources/AppModule/Models/ScheduleCalculator.swift \
+            Sources/AppModule/Models/SharedAppGroup.swift \
             -framework WidgetKit \
             -framework SwiftUI \
             -framework UIKit \
             -framework Foundation \
             -framework ExtensionFoundation
 
-          echo "Copying Widget Extension Info.plist and Assets..."
+          echo "=== Verifying extension is a valid iOS executable ==="
+          file "$WIDGET_APPEX_DIR/ClassScheduleWidget"
+          otool -l "$WIDGET_APPEX_DIR/ClassScheduleWidget" | grep -A4 LC_BUILD_VERSION || true
+          otool -L "$WIDGET_APPEX_DIR/ClassScheduleWidget"
+
+      - name: Assemble and Sign Widget.appex
+        run: |
+          cd ClassSchedule.swiftpm
+          APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
+          WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
+
+          echo "Copying widget Info.plist..."
           cp WidgetExtension/Info.plist "$WIDGET_APPEX_DIR/Info.plist"
-          
+
+          # 擴展 bundle 必須有 PkgInfo（值與 CFBundlePackageType 相同）
+          printf 'XPC!' > "$WIDGET_APPEX_DIR/PkgInfo"
+
           # 自動同步主程式版本與組建編號至小工具擴展
           VERSION=$(grep 'displayVersion:' Package.swift | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
           BUILD_NUM=$(grep 'bundleVersion:' Package.swift | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$WIDGET_APPEX_DIR/Info.plist" || true
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$WIDGET_APPEX_DIR/Info.plist" || true
+          echo "App version: $VERSION ($BUILD_NUM)"
 
-          cp -f "$APP_PATH"/AppIcon* "$WIDGET_APPEX_DIR/" 2>/dev/null || true
-          cp -f "$APP_PATH"/Assets.car "$WIDGET_APPEX_DIR/" 2>/dev/null || true
-          chmod +x "$WIDGET_APPEX_DIR/ClassScheduleWidget"
+          set_string_key() {
+            /usr/libexec/PlistBuddy -c "Set :$1 $2" "$WIDGET_APPEX_DIR/Info.plist" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$WIDGET_APPEX_DIR/Info.plist"
+          }
+          set_string_key CFBundleShortVersionString "$VERSION"
+          set_string_key CFBundleVersion "$BUILD_NUM"
+          set_string_key CFBundleDisplayName "課表"
 
-          echo "Ad-hoc signing Widget and App for sideloading tools (with DER entitlements)..."
-          codesign -s - --force --generate-entitlement-der "$WIDGET_APPEX_DIR" || true
-          codesign -s - --force --generate-entitlement-der "$APP_PATH" || true
+          # 從主 App 複製 Xcode 平台資訊（讓擴展具備與 Xcode 原生建置一致的完整鍵值）
+          for key in DTPlatformName DTSDKName DTPlatformVersion DTPlatformBuild DTSDKBuild DTXcode DTXcodeBuild DTCompiler BuildMachineOSBuild; do
+            VALUE=$(/usr/libexec/PlistBuddy -c "Print :$key" "$APP_PATH/Info.plist" 2>/dev/null || true)
+            if [ -n "$VALUE" ]; then
+              set_string_key "$key" "$VALUE"
+            fi
+          done
 
-          echo "=== WidgetKit Extension Verification ==="
-          ls -lh "$WIDGET_APPEX_DIR"
-          file "$WIDGET_APPEX_DIR/ClassScheduleWidget"
-          otool -L "$WIDGET_APPEX_DIR/ClassScheduleWidget" || true
+          echo "=== Widget.appex Info.plist ==="
           plutil -p "$WIDGET_APPEX_DIR/Info.plist"
 
-          zip -qr ClassSchedule.ipa Payload
-          ls -lh ClassSchedule.ipa
+          echo "Ad-hoc signing widget extension with App Group entitlements..."
+          codesign --force --sign - \
+            --entitlements WidgetExtension/WidgetExtension.entitlements \
+            --generate-entitlement-der \
+            "$WIDGET_APPEX_DIR"
 
+          echo "--- Signed widget entitlements ---"
+          codesign -d --entitlements :- "$WIDGET_APPEX_DIR" 2>&1 || true
+
+      - name: Normalize App Info.plist and Sign App
+        run: |
+          cd ClassSchedule.swiftpm
+          APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
+
+          echo "=== Normalizing App Info.plist ==="
+          # SwiftPM 產生的 UILaunchScreen 會被合併成巢狀字典，必須重設為扁平空字典
+          /usr/libexec/PlistBuddy -c "Delete :UILaunchScreen" "$APP_PATH/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Add :UILaunchScreen dict" "$APP_PATH/Info.plist"
+
+          # 主畫面與小工具庫的顯示名稱。缺少此鍵時系統只會顯示 ClassSchedule，
+          # 使用者在小工具庫搜尋「課表」將永遠找不到。
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 課表" "$APP_PATH/Info.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 課表" "$APP_PATH/Info.plist"
+
+          # 啟用 120Hz ProMotion 超高更新率與原生全螢幕渲染
+          for key in CADisableMinimumFrameDurationOnPhone CADisableMinimumFrameDuration; do
+            /usr/libexec/PlistBuddy -c "Set :$key true" "$APP_PATH/Info.plist" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Add :$key bool true" "$APP_PATH/Info.plist"
+          done
+          /usr/libexec/PlistBuddy -c "Set :UIRequiresFullScreen false" "$APP_PATH/Info.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool false" "$APP_PATH/Info.plist"
+
+          # 這個鍵一旦為 true 就會強制舊版外觀，必須確保它不存在或是 false
+          /usr/libexec/PlistBuddy -c "Delete :UIDesignRequiresCompatibility" "$APP_PATH/Info.plist" || true
+
+          echo "--- 關鍵鍵值確認 ---"
+          plutil -p "$APP_PATH/Info.plist" | grep -E "CFBundleDisplayName|CADisable|UILaunchScreen|UIDesign" || true
+
+          echo "Ad-hoc signing main app with App Group entitlements..."
+          codesign --force --sign - \
+            --entitlements App.entitlements \
+            --generate-entitlement-der \
+            "$APP_PATH"
+
+          echo "--- Signed app entitlements ---"
+          codesign -d --entitlements :- "$APP_PATH" 2>&1 || true
+
+      - name: Verify Bundle Before Packaging
+        run: |
+          set +e
+          cd ClassSchedule.swiftpm
+          APP_PATH=$(ls -d build/Build/Products/*-iphoneos/*.app)
+          WIDGET_APPEX_DIR="$APP_PATH/PlugIns/ClassScheduleWidget.appex"
+          FAILED=0
+
+          check() {
+            if [ "$1" = "1" ]; then
+              echo "  OK    $2"
+            else
+              echo "::error::$2"
+              FAILED=1
+            fi
+          }
+
+          echo "=== 打包前驗證 ==="
+          test -f "$WIDGET_APPEX_DIR/ClassScheduleWidget"; check $? "widget 執行檔存在"
+          test -f "$WIDGET_APPEX_DIR/Info.plist";          check $? "widget Info.plist 存在"
+          test -f "$WIDGET_APPEX_DIR/PkgInfo";             check $? "widget PkgInfo 存在"
+
+          plutil -p "$WIDGET_APPEX_DIR/Info.plist" | grep -q "com.apple.widgetkit-extension"; check $? "widget NSExtensionPointIdentifier 正確"
+          codesign -d --entitlements :- "$WIDGET_APPEX_DIR" 2>&1 | grep -q "group.com.fengfeng.classschedule"; check $? "widget 具備 App Group 授權"
+          codesign -d --entitlements :- "$APP_PATH" 2>&1 | grep -q "group.com.fengfeng.classschedule"; check $? "主 App 具備 App Group 授權"
+          DISPLAY_NAME=$(plutil -extract CFBundleDisplayName raw "$APP_PATH/Info.plist" 2>/dev/null)
+          echo "  App CFBundleDisplayName = ${DISPLAY_NAME:-<未設定>}"
+          test -n "$DISPLAY_NAME"; check $? "主 App 已設定 CFBundleDisplayName"
+          otool -l "$WIDGET_APPEX_DIR/ClassScheduleWidget" | grep -q "LC_MAIN"; check $? "widget 具備 LC_MAIN 入口點"
+
+          echo "--- widget binary build version ---"
+          otool -l "$WIDGET_APPEX_DIR/ClassScheduleWidget" | grep -A4 "LC_BUILD_VERSION" || true
+
+          echo "=== 最終 bundle 結構 ==="
+          find "$APP_PATH" -maxdepth 2 | sort
+
+          exit $FAILED
+
+      - name: Package IPA
+        run: |
+          cd ClassSchedule.swiftpm
+          mkdir -p Payload
+          cp -r build/Build/Products/*-iphoneos/*.app Payload/
+          zip -qry ClassSchedule.ipa Payload
+          ls -lh ClassSchedule.ipa
+          echo "=== IPA 內容（擴展必須存在） ==="
+          unzip -l ClassSchedule.ipa | grep -E "appex|PlugIns" || true
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
@@ -132,7 +238,5 @@ jobs:
           echo "Releasing $TAG..."
           gh release create "$TAG" ClassSchedule.swiftpm/ClassSchedule.ipa \
             --title "ClassSchedule iOS App ($TAG)" \
-            --notes "課表 iOS 原生應用程式安裝包 (IPA)。全面支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、鎖定畫面，精確到分動態更新進度條與三種顯示模式）、開啟 App 自動檢測更新、120Hz ProMotion 超高刷新率、Apple 原生液態毛玻璃質感，以及手機直向/平板橫向高清課表圖片匯出。" || \
+            --notes "課表 iOS 原生應用程式安裝包 (IPA)。採用 Xcode 26 / iOS 26 SDK 建置，完整啟用 iPadOS 原生液態玻璃（Liquid Glass）工具列與流體分頁動效；小工具擴展改由 iOS 26 SDK 編譯並補齊 App Group 授權與擴展 bundle 結構，側載後可正確註冊於小工具庫並與主程式共享課表資料。" || \
           gh release upload "$TAG" ClassSchedule.swiftpm/ClassSchedule.ipa --clobber
-
-

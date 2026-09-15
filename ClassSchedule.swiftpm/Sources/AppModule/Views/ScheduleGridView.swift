@@ -270,9 +270,8 @@ public struct ScheduleGridView: View {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .semibold))
             }
-            .buttonStyle(.bordered)
+            .appleToolbarActionStyle()
             .appleCircularButtonShape()
-            .tint(.primary)
             .accessibilityLabel("選單與設定")
         }
 
@@ -286,9 +285,8 @@ public struct ScheduleGridView: View {
                         Image(systemName: "arrow.down.doc")
                             .font(.system(size: 14.5, weight: .semibold))
                     }
-                    .buttonStyle(.bordered)
+                    .appleToolbarActionStyle()
                     .appleCircularButtonShape()
-                    .tint(.primary)
                     .accessibilityLabel("匯入課表")
 
                     Button {
@@ -297,9 +295,8 @@ public struct ScheduleGridView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .bold))
                     }
-                    .buttonStyle(.borderedProminent)
+                    .appleToolbarProminentActionStyle()
                     .appleCircularButtonShape()
-                    .tint(.blue)
                     .accessibilityLabel("新增課程")
                 }
             }
@@ -1061,6 +1058,21 @@ public struct AppleLiquidCapsuleTabPicker: View {
     }
 
     public var body: some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            // iOS 26 以上：交給 GlassEffectContainer 讓被選取的玻璃膠囊以流體形變方式移動
+            GlassEffectContainer(spacing: 6.0) {
+                tabButtons
+            }
+        } else {
+            tabButtons
+        }
+        #else
+        tabButtons
+        #endif
+    }
+
+    private var tabButtons: some View {
         HStack(spacing: 2) {
             ForEach(AppMainTab.allCases) { tab in
                 let isSelected = selectedTab == tab
@@ -1080,27 +1092,16 @@ public struct AppleLiquidCapsuleTabPicker: View {
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .padding(.vertical, 6)
                     .padding(.horizontal, 14)
-                    .background {
-                        if isSelected {
-                            Capsule()
-                                .fill(Color(uiColor: .systemBackground))
-                                .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 1.5)
-                                .matchedGeometryEffect(id: "ACTIVE_CAPSULE_PILL", in: tabIndicatorNamespace)
-                        }
-                    }
                 }
                 .buttonStyle(.plain)
+                .modifier(AppleSelectionPill(
+                    isSelected: isSelected,
+                    identity: tab.id,
+                    namespace: tabIndicatorNamespace
+                ))
             }
         }
-        .padding(3)
-        .background(
-            Capsule()
-                .fill(Color(uiColor: .tertiarySystemFill))
-        )
-        .overlay(
-            Capsule()
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.8)
-        )
+        .modifier(AppleSegmentedTrack())
     }
 }
 

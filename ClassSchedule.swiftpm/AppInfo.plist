@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDisplayName</key>
+    <string>課表</string>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>CADisableMinimumFrameDuration</key>
@@ -12,5 +14,11 @@
     <false/>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <true/>
+    <!--
+        必須保持 false（或不存在）：一旦為 true，即使使用 iOS 26 SDK 建置，
+        系統仍會強制以舊版外觀渲染，工具列與彈窗就不會出現 Liquid Glass。
+    -->
+    <key>UIDesignRequiresCompatibility</key>
+    <false/>
 </dict>
 </plist>

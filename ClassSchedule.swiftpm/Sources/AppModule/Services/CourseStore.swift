@@ -11,10 +11,14 @@ public final class CourseStore: ObservableObject {
 
     private let coursesFilename = "courses.json"
     private let settingsFilename = "settings.json"
-    private let appGroupSuite = "group.com.fengfeng.classschedule"
 
+    /// 共享容器資訊（每次寫入時重新解析，避免側載工具換簽章後仍快取舊識別碼）。
     private var sharedDefaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupSuite)
+        SharedAppGroup.sharedDefaults
+    }
+
+    private var sharedContainerURL: URL? {
+        SharedAppGroup.containerURL
     }
 
     public init() {
@@ -175,7 +179,7 @@ public final class CourseStore: ObservableObject {
             if let sharedDefaults = sharedDefaults {
                 sharedDefaults.set(data, forKey: "saved_courses")
             }
-            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+            if let groupContainer = sharedContainerURL {
                 let groupURL = groupContainer.appendingPathComponent(coursesFilename)
                 try? data.write(to: groupURL, options: [.atomicWrite])
             }
@@ -200,7 +204,7 @@ public final class CourseStore: ObservableObject {
             if let sharedDefaults = sharedDefaults {
                 sharedDefaults.set(data, forKey: "saved_settings")
             }
-            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+            if let groupContainer = sharedContainerURL {
                 let groupURL = groupContainer.appendingPathComponent(settingsFilename)
                 try? data.write(to: groupURL, options: [.atomicWrite])
             }
@@ -216,14 +220,14 @@ public final class CourseStore: ObservableObject {
     private func syncToSharedGroup() {
         if let data = try? JSONEncoder().encode(courses) {
             sharedDefaults?.set(data, forKey: "saved_courses")
-            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+            if let groupContainer = sharedContainerURL {
                 let groupURL = groupContainer.appendingPathComponent(coursesFilename)
                 try? data.write(to: groupURL, options: [.atomicWrite])
             }
         }
         if let data = try? JSONEncoder().encode(settings) {
             sharedDefaults?.set(data, forKey: "saved_settings")
-            if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+            if let groupContainer = sharedContainerURL {
                 let groupURL = groupContainer.appendingPathComponent(settingsFilename)
                 try? data.write(to: groupURL, options: [.atomicWrite])
             }
@@ -247,7 +251,7 @@ public final class CourseStore: ObservableObject {
             return
         }
 
-        if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+        if let groupContainer = sharedContainerURL {
             let groupURL = groupContainer.appendingPathComponent(coursesFilename)
             if let data = try? Data(contentsOf: groupURL),
                let decoded = try? JSONDecoder().decode([Course].self, from: data) {
@@ -271,7 +275,7 @@ public final class CourseStore: ObservableObject {
             return
         }
 
-        if let groupContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupSuite) {
+        if let groupContainer = sharedContainerURL {
             let groupURL = groupContainer.appendingPathComponent(settingsFilename)
             if let data = try? Data(contentsOf: groupURL),
                let decoded = try? JSONDecoder().decode(ScheduleSettings.self, from: data) {

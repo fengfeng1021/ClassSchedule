@@ -42,6 +42,8 @@ public struct ClassScheduleWidgetEntryView: View {
             mediumWidgetView
         case .systemLarge:
             largeWidgetView
+        case .systemExtraLarge:
+            largeWidgetView
         case .accessoryRectangular:
             accessoryRectangularView
         case .accessoryInline:
