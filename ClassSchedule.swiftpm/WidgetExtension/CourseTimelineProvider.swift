@@ -115,6 +115,34 @@ public struct CourseTimelineEntry: TimelineEntry {
         guard let start = upcomingCourseStartDate, let minutes = reminderMinutes else { return nil }
         return start.addingTimeInterval(TimeInterval(-minutes * 60))
     }
+
+    // MARK: - 統一「下一堂課」倒數（不論今天或未來）
+
+    /// 下一堂課的課程：今天還沒上的優先，其次是以後最近的一堂。
+    public var nextClassCourse: Course? {
+        nextCourse?.course ?? nextCourseAfterToday
+    }
+
+    /// 下一堂課的實際開始時間（今天或未來）。
+    ///
+    /// 這個值讓小工具在**任何狀態**都能顯示倒數 ——
+    /// 包含「今天還有課」「正在上課」「今天已結束」。
+    public var nextClassStartDate: Date? {
+        upcomingCourseStartDate ?? nextCourseStartDate
+    }
+
+    /// 給 `Text(timerInterval:countsDown:)` 用的倒數區間。
+    ///
+    /// 安全性：時間軸會往後多排 entry（例如排到 30 分鐘後），
+    /// 因此 `date` 有可能已經超過目標時間。直接使用 `date...target` 會形成
+    /// 無效區間（lower > upper）並在執行期崩潰，所以這裡把下界夾住。
+    /// 真正顯示的數值只取決於上界，與下界無關，因此夾住不影響倒數正確性。
+    public var classCountdownInterval: ClosedRange<Date>? {
+        guard let target = nextClassStartDate else { return nil }
+        let lowerBound = min(date, target.addingTimeInterval(-60))
+        guard lowerBound < target else { return nil }
+        return lowerBound...target
+    }
 }
 
 /// 距下一堂課的倒數。

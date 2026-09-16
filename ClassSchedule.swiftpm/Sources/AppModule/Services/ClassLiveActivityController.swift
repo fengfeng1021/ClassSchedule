@@ -16,27 +16,29 @@ public final class ClassLiveActivityController {
 
     public static let shared = ClassLiveActivityController()
 
+    /// 倒數卡片最早提前幾分鐘開始顯示。
+    ///
+    /// Live Activity 只能在 App 處於前景時啟動，若只在「課前 X 分鐘」才開，
+    /// 使用者沒在那段時間打開 App 就會完全看不到。
+    /// 因此改成提前 3 小時就允許顯示 —— 使用者只要在這段期間內開過一次 App，
+    /// 卡片就會留在鎖定畫面上持續倒數。
+    private static let leadTimeMinutes = 180
+
     private init() {}
 
     /// 依目前課表與設定，讓 Live Activity 呈現正確狀態。
     ///
-    /// - 若下一堂課**已經進入提醒窗口**（課前 N 分鐘內）→ 啟動倒數卡片
-    /// - 若正在上課的那堂課已有卡片 → 課堂結束後結束它
-    /// - 若沒有符合條件的課 → 不動作（保留現有卡片，交由系統或使用者關閉）
+    /// - 若下一堂課已進入**提前顯示窗口**（見 `leadTimeMinutes`）→ 啟動倒數卡片
+    /// - 已在倒數中的同一堂課不會重複建立；換課或時間變動會先收掉舊的
+    /// - 課堂結束後收掉卡片
     public func sync(courses: [Course], settings: ScheduleSettings, calendar: Calendar = .current) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        guard let minutes = settings.classReminderMinutes, minutes > 0 else {
-            // 提醒被關掉時，把還在畫面上的卡片收掉
-            endAllActivities()
-            return
-        }
         guard let occurrence = ClassReminderService.nextOccurrence(courses: courses, calendar: calendar) else {
             endAllActivities()
             return
         }
 
         let now = Date()
-        let windowStart = occurrence.startDate.addingTimeInterval(TimeInterval(-minutes * 60))
 
         // 課已經結束 → 收掉卡片
         if now >= occurrence.endDate {
@@ -44,14 +46,16 @@ public final class ClassLiveActivityController {
             return
         }
 
-        // 還不到提醒窗口 → 不要提早跳卡片
+        // 提前顯示窗口：使用者設定的提醒分鐘數，但至少提前 leadTime 分鐘開始顯示，
+        // 讓卡片能「一直放在鎖定畫面上」，而不是只在課前幾分鐘突然出現。
+        let leadMinutes = max(settings.classReminderMinutes ?? 0, Self.leadTimeMinutes)
+        let windowStart = occurrence.startDate.addingTimeInterval(TimeInterval(-leadMinutes * 60))
         guard now >= windowStart else { return }
 
         let running = Activity<ClassSessionActivityAttributes>.activities
 
-        // 已經有同一堂課的卡片就不再重複建立
+        // 已經有同一堂課的卡片就不重複建立
         if let existing = running.first(where: { $0.attributes.startDate == occurrence.startDate }) {
-            // 其他殘留的卡片（換課、改時間）順手收掉
             for activity in running where activity.id != existing.id {
                 Task { await activity.end(nil, dismissalPolicy: .immediate) }
             }

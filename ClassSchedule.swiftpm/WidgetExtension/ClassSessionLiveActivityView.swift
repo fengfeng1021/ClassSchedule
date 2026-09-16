@@ -4,11 +4,14 @@ import WidgetKit
 
 /// 上課倒數 Live Activity。
 ///
-/// 鎖屏卡片以**超大倒數**為主角，搭配課程名稱與教室（像中型小工具那樣的資訊量）。
+/// 鎖屏卡片以**超大倒數**與**大尺寸教室**為主角（像中型小工具那樣的資訊量）。
 ///
 /// 倒數為什麼會自己跳動：`Text(timerInterval:countsDown:)` 由系統渲染，
 /// 每秒更新一次，**不需要 App 在前景、也不需要推播**。
-/// 區間刻意取「建立時間 → 上課時間」，因為這個範圍在卡片存活期間永遠有效。
+/// 區間取「建立時間 → 上課時間」，這個範圍在卡片存活期間永遠有效。
+///
+/// 上課時間一到，系統會把內容標記為 stale 並重新渲染（`context.isStale`），
+/// 此時改成顯示「上課中」與教室，避免大字停在 00:00。
 @available(iOS 16.2, *)
 struct ClassSessionLiveActivity: Widget {
     var body: some WidgetConfiguration {
@@ -20,7 +23,7 @@ struct ClassSessionLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("即將上課")
+                        Text(context.isStale ? "上課中" : "即將上課")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.secondary)
                         Text(context.attributes.courseName)
@@ -30,14 +33,20 @@ struct ClassSessionLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    countdownText(context: context, size: 22)
+                    if context.isStale {
+                        Text(context.attributes.classroom)
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .foregroundStyle(courseColor(context))
+                    } else {
+                        countdownText(context: context, size: 24)
+                    }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: 6) {
                         if !context.attributes.classroom.isEmpty {
                             Label(context.attributes.classroom, systemImage: "location.fill")
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
                                 .foregroundStyle(courseColor(context))
                         }
                         Spacer(minLength: 0)
@@ -51,7 +60,12 @@ struct ClassSessionLiveActivity: Widget {
                 Image(systemName: "graduationcap.fill")
                     .foregroundStyle(courseColor(context))
             } compactTrailing: {
-                countdownText(context: context, size: 13)
+                if context.isStale {
+                    Image(systemName: "location.fill")
+                        .foregroundStyle(courseColor(context))
+                } else {
+                    countdownText(context: context, size: 13)
+                }
             } minimal: {
                 Image(systemName: "graduationcap.fill")
                     .foregroundStyle(courseColor(context))
@@ -68,7 +82,7 @@ struct ClassSessionLiveActivity: Widget {
 
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("即將上課")
+                Text(context.isStale ? "上課中" : "即將上課")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
 
@@ -80,7 +94,7 @@ struct ClassSessionLiveActivity: Widget {
                 HStack(spacing: 6) {
                     if !attributes.classroom.isEmpty {
                         Label(attributes.classroom, systemImage: "location.fill")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(size: 16, weight: .black, design: .rounded))
                             .foregroundStyle(courseColor(context))
                     }
 
@@ -90,18 +104,32 @@ struct ClassSessionLiveActivity: Widget {
                         .foregroundStyle(.secondary)
                 }
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
             }
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("距上課")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
+            if context.isStale {
+                // 已經上課：不再顯示歸零的倒數，改把教室放大
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("教室")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    Text(attributes.classroom.isEmpty ? "—" : attributes.classroom)
+                        .font(.system(size: 30, weight: .black, design: .rounded))
+                        .foregroundStyle(courseColor(context))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                }
+            } else {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("距上課")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
 
-                // 由系統渲染、每秒自動更新的大倒數
-                countdownText(context: context, size: 38)
+                    // 由系統渲染、每秒自動更新的大倒數
+                    countdownText(context: context, size: 40)
+                }
             }
         }
         .padding(.horizontal, 16)

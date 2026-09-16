@@ -70,7 +70,7 @@ public struct ClassScheduleWidgetEntryView: View {
                             Circle()
                                 .fill(statusColor)
                                 .frame(width: 6, height: 6)
-                            Text(isCurrent ? "上課中" : (entry.nextCourse != nil ? "\(entry.nextCourse!.minutesUntil)分後" : "下一節"))
+                            Text(isCurrent ? "上課中" : (entry.nextCourse != nil ? "下一節" : "本日排課"))
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(statusColor)
                         }
@@ -78,9 +78,12 @@ public struct ClassScheduleWidgetEntryView: View {
                         .padding(.vertical, 2)
                         .background(statusColor.opacity(0.14), in: Capsule())
 
-                        Spacer()
+                        Spacer(minLength: 0)
 
-                        if settings.showPeriodTime {
+                        if entry.classCountdownInterval != nil {
+                            // 即時倒數（系統每秒更新）取代靜態時間，任何狀態都看得到
+                            liveCountdown(size: 15, color: statusColor)
+                        } else if settings.showPeriodTime {
                             Text(course.timeRangeString)
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
                                 .monospacedDigit()
@@ -100,9 +103,11 @@ public struct ClassScheduleWidgetEntryView: View {
                                 Image(systemName: "location.fill")
                                     .font(.system(size: 11))
                                 Text(course.classroom)
-                                    .font(.system(size: settings.highlightClassroom ? 24 : 18, weight: .black, design: .rounded))
+                                    .font(.system(size: settings.highlightClassroom ? 27 : 21, weight: .black, design: .rounded))
                             }
                             .foregroundStyle(course.color)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                         }
                     }
 
@@ -247,17 +252,23 @@ public struct ClassScheduleWidgetEntryView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         let isCurrent = entry.currentCourse != nil
                         let statusColor = isCurrent ? Color.green : course.color
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(statusColor)
-                                .frame(width: 7, height: 7)
-                            Text(isCurrent ? "目前進行中" : (entry.nextCourse != nil ? "下一節" : "本日排課"))
-                                .font(.system(size: 10.5, weight: .bold))
-                                .foregroundStyle(statusColor)
+                        HStack(spacing: 8) {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(statusColor)
+                                    .frame(width: 7, height: 7)
+                                Text(isCurrent ? "目前進行中" : (entry.nextCourse != nil ? "下一節" : "本日排課"))
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundStyle(statusColor)
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2.5)
+                            .background(statusColor.opacity(0.12), in: Capsule())
+
+                            Spacer(minLength: 0)
+
+                            countdownBlock(size: 20, color: statusColor)
                         }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2.5)
-                        .background(statusColor.opacity(0.12), in: Capsule())
 
                         Spacer()
 
@@ -267,10 +278,10 @@ public struct ClassScheduleWidgetEntryView: View {
                                 .foregroundStyle(.secondary)
 
                             Text(course.classroom.isEmpty ? "未指定" : course.classroom)
-                                .font(.system(size: settings.highlightClassroom ? 26 : 20, weight: .black, design: .rounded))
+                                .font(.system(size: settings.highlightClassroom ? 30 : 24, weight: .black, design: .rounded))
                                 .foregroundStyle(course.color)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.65)
+                                .minimumScaleFactor(0.6)
                         }
 
                         if settings.showPeriodTime {
@@ -447,7 +458,7 @@ public struct ClassScheduleWidgetEntryView: View {
             switch settings.displayMode {
             case .classroomFocus:
                 if let course = entry.targetCourse {
-                    HStack {
+                    HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.currentCourse != nil ? "● 進行中課程" : "▶ 下一節預告")
                                 .font(.system(size: 10, weight: .bold))
@@ -458,6 +469,10 @@ public struct ClassScheduleWidgetEntryView: View {
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
                         }
+
+                        Spacer()
+
+                        countdownBlock(size: 22, color: entry.currentCourse != nil ? .green : course.color)
 
                         Spacer()
 
@@ -686,7 +701,7 @@ public struct ClassScheduleWidgetEntryView: View {
                 HStack(spacing: 5) {
                     if settings.showClassroom && !course.classroom.isEmpty {
                         Label(course.classroom, systemImage: "location.fill")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .font(.system(size: 13, weight: .black, design: .rounded))
                             .foregroundStyle(course.color)
                             .lineLimit(1)
                     }
@@ -694,10 +709,33 @@ public struct ClassScheduleWidgetEntryView: View {
                     Spacer(minLength: 0)
 
                     Text(timerInterval: windowStart...startDate, countsDown: true)
-                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .font(.system(size: 16, weight: .black, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(course.color)
                         .lineLimit(1)
+                }
+            }
+        } else if let course = entry.currentCourse ?? entry.nextCourse?.course {
+            // 上課中或等待下一節：教室與倒數並排，兩者都加大（這是鎖定畫面上最需要的資訊）
+            VStack(alignment: .leading, spacing: 1) {
+                Text(course.name)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    if settings.showClassroom && !course.classroom.isEmpty {
+                        Label(course.classroom, systemImage: "location.fill")
+                            .font(.system(size: 15, weight: .black, design: .rounded))
+                            .foregroundStyle(course.color)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    liveCountdown(size: 17, color: course.color)
                 }
             }
         } else if isTodayFinished {
@@ -768,6 +806,35 @@ public struct ClassScheduleWidgetEntryView: View {
     }
 
     // MARK: - 輔助視圖
+
+    /// 下一堂課的即時倒數。
+    ///
+    /// 用 `Text(timerInterval:countsDown:)` 由**系統**渲染，每秒自動更新，
+    /// 因此小工具在桌面上、鎖定畫面上都會持續跳動，不需要 App 保持開啟。
+    @ViewBuilder
+    private func liveCountdown(size: CGFloat, color: Color) -> some View {
+        if let interval = entry.classCountdownInterval {
+            Text(timerInterval: interval, countsDown: true)
+                .font(.system(size: size, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+        }
+    }
+
+    /// 「距下一堂」小標 + 倒數，供中型與大型使用。
+    @ViewBuilder
+    private func countdownBlock(size: CGFloat, color: Color) -> some View {
+        if entry.classCountdownInterval != nil {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.currentCourse != nil ? "距下一堂" : "距上課")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(.secondary)
+                liveCountdown(size: size, color: color)
+            }
+        }
+    }
 
     private func progressBarView(progressInfo: DayProgressInfo, color: Color) -> some View {
         VStack(spacing: 3) {

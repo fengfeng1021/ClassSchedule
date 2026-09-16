@@ -10,15 +10,23 @@
       "bundleIdentifier": "com.fengfeng.classschedule",
       "developerName": "fengfeng",
       "subtitle": "桌面小工具與 120Hz 質感課表",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "versionDate": "2026-09-15",
-      "versionDescription": "1. 新增「上課提醒」：課前 N 分鐘跳出通知，內容包含課程名稱、教室與上課時間。\n2. 提醒分鐘數沒有預設值，需在「課表自訂設定 → 上課提醒」手動輸入（1～120 分鐘）；清空欄位即可關閉。可用「送出測試提醒」立即確認設定。\n3. 新增鎖屏倒數卡片（Live Activity）：時間快到上課時間時，鎖定畫面會出現大字倒數，搭配課程名稱與教室；倒數由系統每秒更新，不需要 App 保持在開啟狀態。（依系統限制，卡片只會在 App 處於前景時啟動，因此請配合通知一起使用。）\n4. 鎖定畫面小工具（矩形）同步新增課前倒數：進入提醒窗口後顯示課程、教室與倒數。",
-      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.4.0/ClassSchedule.ipa",
-      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 課前提醒通知（分鐘數自行輸入）與鎖屏大字倒數卡片\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、iPad 特大、鎖定畫面）\n• 小工具隨時間自動切換：上課中／倒數／今日已結束並倒數下一堂\n• 原生 Liquid Glass 液態玻璃工具列與流體分頁動效（需 iOS 26 以上）\n• 內建小工具註冊診斷：直接指出擴展未註冊的原因與解法",
+      "versionDescription": "1. 修正「到了當天就沒有倒數」：小工具現在在任何狀態都會顯示距離下一堂課的即時倒數，包含正在上課、課與課之間、以及今天已結束。\n2. 倒數改為系統渲染（每秒自動更新），不需要 App 保持在開啟狀態就會持續跳動。\n3. 教室與倒數同步放大：小型教室字級 18→21（醒目模式 24→27）、中型 20→24（醒目 26→30）並在標題列加入倒數；大型新增獨立的倒數區塊。\n4. 鎖定畫面小工具重新設計：上課中／等待下一節時，左邊顯示放大的教室、右邊顯示即時倒數，兩者都比原本更大；今日已結束則顯示下一堂的倒數。\n5. 鎖屏倒數卡片（Live Activity）：教室放大到 16pt、倒數維持 40pt 大字；上課時間一到（內容轉為 stale）改顯示「上課中」與放大的教室，不會停在 00:00。\n6. 鎖屏卡片改為提前 3 小時即可顯示，讓它能像停車 App 那樣「一直放在鎖定畫面上」，而不是只在課前幾分鐘才出現。",
+      "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.4.1/ClassSchedule.ipa",
+      "localizedDescription": "專為學生打造的高顏值現代質感課表。\n• 課前提醒通知（分鐘數自行輸入）與鎖屏大字倒數卡片\n• 桌面小工具任何狀態都顯示距下一堂課的即時倒數\n• 支援 iOS 桌面 WidgetKit 小工具（小型、中型、大型、iPad 特大、鎖定畫面）\n• 原生 Liquid Glass 液態玻璃工具列與流體分頁動效（需 iOS 26 以上）\n• 內建小工具註冊診斷：直接指出擴展未註冊的原因與解法",
       "iconURL": "https://raw.githubusercontent.com/fengfeng1021/ClassSchedule/main/AppIcon.png",
       "tintColor": "3478F6",
       "size": 3000000,
       "versions": [
+        {
+          "version": "1.4.1",
+          "date": "2026-09-15",
+          "localizedDescription": "1. 修正「到了當天就沒有倒數」：小工具現在在任何狀態都會顯示距離下一堂課的即時倒數，包含正在上課、課與課之間、以及今天已結束。\n2. 倒數改為系統渲染（每秒自動更新），不需要 App 保持在開啟狀態就會持續跳動。\n3. 教室與倒數同步放大：小型教室字級 18→21（醒目模式 24→27）、中型 20→24（醒目 26→30）並在標題列加入倒數；大型新增獨立的倒數區塊。\n4. 鎖定畫面小工具重新設計：上課中／等待下一節時，左邊顯示放大的教室、右邊顯示即時倒數，兩者都比原本更大；今日已結束則顯示下一堂的倒數。\n5. 鎖屏倒數卡片（Live Activity）：教室放大到 16pt、倒數維持 40pt 大字；上課時間一到（內容轉為 stale）改顯示「上課中」與放大的教室，不會停在 00:00。\n6. 鎖屏卡片改為提前 3 小時即可顯示，讓它能像停車 App 那樣「一直放在鎖定畫面上」，而不是只在課前幾分鐘才出現。",
+          "downloadURL": "https://github.com/fengfeng1021/ClassSchedule/releases/download/v1.4.1/ClassSchedule.ipa",
+          "size": 3000000,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "1.4.0",
           "date": "2026-09-15",
